@@ -1,0 +1,116 @@
+workflows:
+  ios-workflow:
+    name: iOS Workflow
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      vars:
+        XCODE_WORKSPACE: "Runner.xcworkspace"
+        XCODE_SCHEME: "Runner"
+        BUNDLE_ID: "com.agtiaz.app"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter packages pub get
+      - name: Pod install
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Build iOS app for Simulator
+        script: |
+          flutter build ios --simulator --debug
+    artifacts:
+      - build/ios/iphonesimulator/*.app
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      email:
+        recipients:
+          - appagtiaz@gmail.com
+        notify:
+          success: true
+          failure: true
+  ios-unsigned-ipa:
+    name: iOS Unsigned IPA
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      vars:
+        BUNDLE_ID: "com.agtiaz.app"
+        IPA_PATH: "build/ios/ipa/agtiaz-unsigned.ipa"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Prepare build directories
+        script: |
+          mkdir -p build/codemagic_logs build/ios/ipa
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+      - name: Decode Firebase iOS configuration
+        script: |
+          set -e
+          if [ -z "$GOOGLE_SERVICE_INFO_PLIST_BASE64" ]; then
+            echo "GOOGLE_SERVICE_INFO_PLIST_BASE64 is required because iOS Google Sign-In is enabled in the app."
+            echo "Add Base64-encoded ios/Runner/GoogleService-Info.plist as a secure Codemagic environment variable."
+            exit 1
+          fi
+
+          echo "$GOOGLE_SERVICE_INFO_PLIST_BASE64" | base64 -D > ios/Runner/GoogleService-Info.plist
+          plutil -lint ios/Runner/GoogleService-Info.plist
+
+          PLIST_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :BUNDLE_ID" ios/Runner/GoogleService-Info.plist)
+          if [ "$PLIST_BUNDLE_ID" != "$BUNDLE_ID" ]; then
+            echo "GoogleService-Info.plist BUNDLE_ID '$PLIST_BUNDLE_ID' does not match '$BUNDLE_ID'."
+            exit 1
+          fi
+
+          REVERSED_CLIENT_ID=$(/usr/libexec/PlistBuddy -c "Print :REVERSED_CLIENT_ID" ios/Runner/GoogleService-Info.plist)
+          if [ -z "$REVERSED_CLIENT_ID" ]; then
+            echo "GoogleService-Info.plist missing REVERSED_CLIENT_ID required for iOS Google Sign-In."
+            exit 1
+          fi
+
+          /usr/libexec/PlistBuddy -c "Delete :CFBundleURLTypes" ios/Runner/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" ios/Runner/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" ios/Runner/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleTypeRole string Editor" ios/Runner/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" ios/Runner/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string $REVERSED_CLIENT_ID" ios/Runner/Info.plist
+
+          grep -q "GoogleService-Info.plist in Resources" ios/Runner.xcodeproj/project.pbxproj
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install
+      - name: Flutter analyze diagnostic
+        script: |
+          set +e
+          flutter analyze > build/codemagic_logs/flutter_analyze.txt 2>&1
+          ANALYZE_EXIT=$?
+          cat build/codemagic_logs/flutter_analyze.txt
+          echo "flutter analyze exit code: $ANALYZE_EXIT"
+          exit 0
+      - name: Build unsigned iPhoneOS release
+        script: |
+          set -e
+          flutter build ios --release --no-codesign
+          test -d build/ios/iphoneos/Runner.app
+      - name: Package unsigned IPA
+        script: |
+          set -e
+          PAYLOAD_DIR="$(mktemp -d)/Payload"
+          mkdir -p "$PAYLOAD_DIR"
+          cp -R build/ios/iphoneos/Runner.app "$PAYLOAD_DIR/Runner.app"
+          test -d "$PAYLOAD_DIR/Runner.app"
+
+          mkdir -p build/ios/ipa
+          (cd "$(dirname "$PAYLOAD_DIR")" && zip -qry "$CM_BUILD_DIR/$IPA_PATH" Payload)
+          unzip -l "$IPA_PATH" > build/codemagic_logs/ipa_contents.txt
+          grep -q "Payload/Runner.app" build/codemagic_logs/ipa_contents.txt
+    artifacts:
+      - build/ios/ipa/agtiaz-unsigned.ipa
+      - build/codemagic_logs/*.txt
+      - /tmp/xcodebuild_logs/*.log

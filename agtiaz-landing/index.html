@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" id="htmlRoot">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" id="metaDescription"
+        content="اجتياز - تطبيقك الأمثل للتحضير لاختبار الرخصة المهنية للمعلمين. أكثر من 2500 سؤال تغطي جميع المعايير التربوية والتخصصية.">
+    <meta name="keywords"
+        content="اختبار الرخصة المهنية, المعلمين, تطبيق تعليمي, اجتياز, Saudi Arabia, Teachers License">
+    <meta name="author" content="Agtiaz">
+    <title id="pageTitle">اجتياز | تطبيق التحضير لاختبار الرخصة المهنية للمعلمين</title>
+
+    <!-- Google Fonts - Cairo -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="app_icon.png">
+</head>
+
+<body>
+    <!-- Language Toggle Button -->
+    <button class="lang-toggle" onclick="toggleLanguage()" id="langBtn">English</button>
+
+    <!-- Floating particles background -->
+    <div class="particles" id="particles"></div>
+
+    <!-- Main content -->
+    <div class="container">
+        <!-- Hero Section -->
+        <header class="hero">
+            <!-- Development Badge -->
+            <div class="dev-badge">
+                <span class="pulse"></span>
+                <span id="devBadge">قيد التطوير</span>
+            </div>
+
+            <!-- Logo -->
+            <div class="logo-container">
+                <img src="app_icon.png" alt="اجتياز Logo" class="logo">
+                <div class="logo-glow"></div>
+            </div>
+
+            <!-- App Title -->
+            <h1 class="title">إجتياز</h1>
+            <p class="subtitle" id="subtitle">تطبيقك الأمثل للتحضير لاختبار الرخصة المهنية للمعلمين</p>
+        </header>
+
+        <!-- Features Section -->
+        <section class="features">
+            <div class="feature-card">
+                <div class="feature-icon">📚</div>
+                <h3 id="feature1Title">+2500 سؤال</h3>
+                <p id="feature1Text">أسئلة شاملة تغطي جميع المعايير التربوية والتخصصية</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3 id="feature2Title">تتبع تقدمك</h3>
+                <p id="feature2Text">إحصائيات مفصلة ومراجعة الأخطاء مع تبرير لكل إجابة</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🎯</div>
+                <h3 id="feature3Title">اختبارات متنوعة</h3>
+                <p id="feature3Text">اختبارات مجانية ومدفوعة بخطط متعددة تناسب احتياجاتك</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">🏆</div>
+                <h3 id="feature4Title">ضمان النجاح</h3>
+                <p id="feature4Text">محتوى محدث باستمرار لضمان تحقيق أفضل النتائج</p>
+            </div>
+        </section>
+
+        <!-- Plans Section -->
+        <section class="plans-section">
+            <h2 class="section-title" id="plansTitle">خطط الاشتراك</h2>
+            <div class="plans">
+                <div class="plan-card silver">
+                    <div class="plan-badge" id="silverBadge">فضي</div>
+                    <h4 id="silverTitle">الخطة الفضية</h4>
+                    <p id="silverQuestions">1000 سؤال</p>
+                </div>
+                <div class="plan-card gold">
+                    <div class="plan-badge" id="goldBadge">ذهبي</div>
+                    <h4 id="goldTitle">الخطة الذهبية</h4>
+                    <p id="goldQuestions">2500 سؤال</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Coming Soon Section -->
+        <section class="coming-soon">
+            <div class="coming-soon-content">
+                <h2 id="comingSoonTitle">🚀 قريباً على المتاجر</h2>
+                <p id="comingSoonText">التطبيق حالياً في مرحلة التطوير النهائية وسيتوفر قريباً على:</p>
+                <div class="store-badges">
+                    <div class="store-badge">
+                        <span class="store-icon">🍎</span>
+                        <span>App Store</span>
+                    </div>
+                    <div class="store-badge">
+                        <span class="store-icon">🤖</span>
+                        <span>Google Play</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Section -->
+        <section class="about-section">
+            <h2 class="section-title" id="aboutTitle">عن التطبيق</h2>
+            <div class="about-content">
+                <p id="aboutText1">
+                    اجتياز هو تطبيق تعليمي متخصص يهدف إلى مساعدة المعلمين في المملكة العربية السعودية على التحضير الأمثل
+                    لاختبار الرخصة المهنية للمعلمين. نحن نقدم أكثر من 2500 سؤال تغطي جميع المعايير التربوية والتخصصية،
+                    مع توفير تبريرات مفصلة لكل إجابة لضمان فهم شامل للمحتوى.
+                </p>
+                <p id="aboutText2">
+                    التطبيق يوفر تجربة تعليمية احترافية مع تتبع التقدم، إحصائيات مفصلة، ومراجعة الأخطاء. نحن ملتزمون
+                    بتوفير محتوى عالي الجودة ومحدث باستمرار لضمان نجاح المعلمين في اختباراتهم المهنية.
+                </p>
+            </div>
+        </section>
+
+        <!-- Email Policy Section -->
+        <section class="policy-section">
+            <h2 class="section-title" id="emailPolicyTitle">سياسة الاتصال عبر البريد الإلكتروني</h2>
+            <div class="policy-content">
+                <h3 id="emailPolicySubtitle1">أنواع الرسائل التي نرسلها</h3>
+                <ul>
+                    <li id="emailType1"><strong>رموز التحقق (OTP):</strong> رموز مؤقتة لمرة واحدة للتحقق من الهوية عند
+                        التسجيل أو تسجيل الدخول</li>
+                    <li id="emailType2"><strong>استعادة كلمة المرور:</strong> رسائل إعادة تعيين كلمة المرور عند الطلب
+                    </li>
+                    <li id="emailType3"><strong>إشعارات الاشتراك:</strong> تأكيدات الاشتراك وإيصالات الدفع</li>
+                    <li id="emailType4"><strong>تحديثات الخدمة:</strong> إشعارات مهمة حول التطبيق والمحتوى التعليمي
+                        (اختياري)</li>
+                </ul>
+
+                <h3 id="emailPolicySubtitle2">التزامنا بخصوصيتك</h3>
+                <p id="emailCommitment">
+                    نحن نحترم خصوصيتك ونلتزم بإرسال الرسائل الضرورية فقط. لن نشارك بريدك الإلكتروني مع أطراف ثالثة
+                    لأغراض تسويقية. جميع الرسائل التعليمية الاختيارية يمكنك إلغاء الاشتراك فيها في أي وقت.
+                </p>
+
+                <h3 id="emailPolicySubtitle3">إلغاء الاشتراك</h3>
+                <p id="unsubscribeInfo">
+                    يمكنك إلغاء الاشتراك في الرسائل التعليمية الاختيارية في أي وقت من خلال:
+                </p>
+                <ul>
+                    <li id="unsubscribeMethod1">إعدادات التطبيق (تفضيلات الإشعارات)</li>
+                    <li id="unsubscribeMethod2">الرابط الموجود في أسفل كل رسالة بريد إلكتروني</li>
+                    <li id="unsubscribeMethod3">التواصل معنا مباشرة على: appagtiaz@gmail.com</li>
+                </ul>
+
+                <p id="essentialEmailsNote">
+                    <strong>ملاحظة:</strong> الرسائل الأساسية (OTP، إعادة تعيين كلمة المرور، إيصالات الدفع) ضرورية
+                    لتشغيل الخدمة ولا يمكن إلغاء الاشتراك فيها.
+                </p>
+            </div>
+        </section>
+
+        <!-- Privacy Policy Section -->
+        <section class="policy-section">
+            <h2 class="section-title" id="privacyPolicyTitle">سياسة الخصوصية</h2>
+            <div class="policy-content">
+                <h3 id="privacySubtitle1">جمع البيانات واستخدامها</h3>
+                <p id="dataCollection">
+                    نقوم بجمع واستخدام البيانات التالية لتوفير خدماتنا:
+                </p>
+                <ul>
+                    <li id="dataType1"><strong>البريد الإلكتروني:</strong> للمصادقة، إعادة تعيين كلمة المرور، والتواصل
+                    </li>
+                    <li id="dataType2"><strong>معلومات الحساب:</strong> الاسم، والتقدم التعليمي</li>
+                    <li id="dataType3"><strong>بيانات الاستخدام:</strong> إحصائيات الأداء والتقدم في الاختبارات</li>
+                    <li id="dataType4"><strong>معلومات الدفع:</strong> تُعالج بشكل آمن من خلال معالج الدفع (لا نخزن
+                        بيانات البطاقة)</li>
+                </ul>
+
+                <h3 id="privacySubtitle2">حماية البيانات</h3>
+                <p id="dataSecurity">
+                    نستخدم تدابير أمنية صناعية قياسية لحماية بياناتك، بما في ذلك التشفير وخوادم آمنة. جميع البيانات
+                    المخزنة على خوادم سحابية آمنة مع نسخ احتياطي منتظم.
+                </p>
+
+                <h3 id="privacySubtitle3">الخدمات الخارجية</h3>
+                <p id="thirdPartyServices">نستخدم الخدمات التالية لتشغيل التطبيق:</p>
+                <ul>
+                    <li id="service1"><strong>Amazon Web Services (AWS):</strong> لإرسال رسائل البريد الإلكتروني (OTP
+                        والإشعارات)</li>
+                    <li id="service2"><strong>MongoDB Atlas:</strong> لتخزين البيانات بشكل آمن</li>
+                    <li id="service3"><strong>معالجات الدفع:</strong> لمعالجة المدفوعات بشكل آمن</li>
+                </ul>
+
+                <h3 id="privacySubtitle4">حقوقك</h3>
+                <p id="userRights">لديك الحق في:</p>
+                <ul>
+                    <li id="right1">الوصول إلى بياناتك الشخصية</li>
+                    <li id="right2">تعديل أو حذف بياناتك</li>
+                    <li id="right3">تصدير بياناتك</li>
+                    <li id="right4">إلغاء حسابك في أي وقت</li>
+                </ul>
+                <p id="contactForRights">للاستفسارات حول الخصوصية، تواصل معنا: appagtiaz@gmail.com</p>
+            </div>
+        </section>
+
+        <!-- Terms of Service Section -->
+        <section class="policy-section">
+            <h2 class="section-title" id="tosTitle">شروط الخدمة</h2>
+            <div class="policy-content">
+                <h3 id="tosSubtitle1">قبول الشروط</h3>
+                <p id="tosAcceptance">
+                    باستخدامك لتطبيق اجتياز، أنت توافق على الالتزام بهذه الشروط. إذا كنت لا توافق على أي من هذه الشروط،
+                    يرجى عدم استخدام التطبيق.
+                </p>
+
+                <h3 id="tosSubtitle2">استخدام الخدمة</h3>
+                <ul>
+                    <li id="usage1">التطبيق مخصص للاستخدام الشخصي والتعليمي فقط</li>
+                    <li id="usage2">يجب أن يكون عمرك 18 عامًا أو أكثر للتسجيل</li>
+                    <li id="usage3">أنت مسؤول عن الحفاظ على سرية حسابك</li>
+                    <li id="usage4">ممنوع مشاركة محتوى الاختبارات أو توزيعه بدون إذن</li>
+                </ul>
+
+                <h3 id="tosSubtitle3">الاشتراكات والمدفوعات</h3>
+                <p id="subscriptionTerms">
+                    نحن نقدم خطط اشتراك متعددة (مجانية ومدفوعة). جميع المدفوعات تتم عبر متاجر التطبيقات الرسمية
+                    (App Store / Google Play) وفقًا لسياساتهم.
+                </p>
+
+                <h3 id="tosSubtitle4">سياسة الاسترداد</h3>
+                <p id="refundPolicy">
+                    تخضع عمليات الاسترداد لسياسات Apple App Store و Google Play Store. للحصول على استرداد،
+                    يرجى الاتصال بالمتجر الذي قمت بالشراء منه مباشرة. في حالات استثنائية، يمكنك التواصل معنا
+                    على appagtiaz@gmail.com.
+                </p>
+
+                <h3 id="tosSubtitle5">الملكية الفكرية</h3>
+                <p id="intellectualProperty">
+                    جميع المحتويات في التطبيق (الأسئلة، الشروحات، التصميم) محمية بحقوق الملكية الفكرية.
+                    يحظر نسخها أو توزيعها دون إذن كتابي.
+                </p>
+
+                <h3 id="tosSubtitle6">إنهاء الخدمة</h3>
+                <p id="termination">
+                    نحتفظ بالحق في تعليق أو إنهاء حسابك في حالة انتهاك هذه الشروط. يمكنك إغلاق حسابك في أي وقت
+                    من خلال إعدادات التطبيق.
+                </p>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section class="contact-section">
+            <h2 class="section-title" id="contactTitle">تواصل معنا</h2>
+            <div class="contact-content">
+                <p id="contactIntro">نحن هنا لمساعدتك! إذا كان لديك أي استفسارات أو مشاكل، تواصل معنا:</p>
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <span class="contact-icon">📧</span>
+                        <div>
+                            <h4 id="emailLabel">البريد الإلكتروني</h4>
+                            <a href="mailto:appagtiaz@gmail.com">appagtiaz@gmail.com</a>
+                        </div>
+                    </div>
+                    <div class="contact-item">
+                        <span class="contact-icon">🌐</span>
+                        <div>
+                            <h4 id="websiteLabel">الموقع الإلكتروني</h4>
+                            <a href="https://agtiaz.online" target="_blank">agtiaz.online</a>
+                        </div>
+                    </div>
+                    <div class="contact-item">
+                        <span class="contact-icon">⏰</span>
+                        <div>
+                            <h4 id="responseLabel">وقت الاستجابة</h4>
+                            <p id="responseTime">عادة خلال 24-48 ساعة</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p id="copyright">© 2025 اجتياز. جميع الحقوق محفوظة.</p>
+            <p class="contact" id="contactText">للتواصل: appagtiaz@gmail.com</p>
+            <p class="domain">🌐 <a href="https://agtiaz.online" target="_blank">agtiaz.online</a></p>
+        </footer>
+    </div>
+
+    <script>
+        // Translations
+        const translations = {
+            ar: {
+                pageTitle: 'اجتياز | تطبيق التحضير لاختبار الرخصة المهنية للمعلمين',
+                metaDescription: 'اجتياز - تطبيقك الأمثل للتحضير لاختبار الرخصة المهنية للمعلمين. أكثر من 2500 سؤال تغطي جميع المعايير التربوية والتخصصية.',
+                langBtn: 'English',
+                devBadge: 'قيد التطوير',
+                subtitle: 'تطبيقك الأمثل للتحضير لاختبار الرخصة المهنية للمعلمين',
+                feature1Title: '+2500 سؤال',
+                feature1Text: 'أسئلة شاملة تغطي جميع المعايير التربوية والتخصصية',
+                feature2Title: 'تتبع تقدمك',
+                feature2Text: 'إحصائيات مفصلة ومراجعة الأخطاء مع تبرير لكل إجابة',
+                feature3Title: 'اختبارات متنوعة',
+                feature3Text: 'اختبارات مجانية ومدفوعة بخطط متعددة تناسب احتياجاتك',
+                feature4Title: 'ضمان النجاح',
+                feature4Text: 'محتوى محدث باستمرار لضمان تحقيق أفضل النتائج',
+                plansTitle: 'خطط الاشتراك',
+                silverBadge: 'فضي',
+                silverTitle: 'الخطة الفضية',
+                silverQuestions: '1000 سؤال',
+                goldBadge: 'ذهبي',
+                goldTitle: 'الخطة الذهبية',
+                goldQuestions: '2500 سؤال',
+                comingSoonTitle: '🚀 قريباً على المتاجر',
+                comingSoonText: 'التطبيق حالياً في مرحلة التطوير النهائية وسيتوفر قريباً على:',
+                copyright: '© 2025 اجتياز. جميع الحقوق محفوظة.',
+                contactText: 'للتواصل: appagtiaz@gmail.com'
+            },
+            en: {
+                pageTitle: 'Agtiaz | Teachers Professional License Test Preparation App',
+                metaDescription: 'Agtiaz - Your optimal app for preparing for the Teachers Professional License Test. More than 2500 questions covering all educational and specialized standards.',
+                langBtn: 'العربية',
+                devBadge: 'In Development',
+                subtitle: 'Your optimal app for preparing for the Teachers Professional License Test',
+                feature1Title: '+2500 Questions',
+                feature1Text: 'Comprehensive questions covering all educational and specialized standards',
+                feature2Title: 'Track Your Progress',
+                feature2Text: 'Detailed statistics and error review with justification for each answer',
+                feature3Title: 'Diverse Tests',
+                feature3Text: 'Free and paid tests with multiple plans to suit your needs',
+                feature4Title: 'Success Guarantee',
+                feature4Text: 'Constantly updated content to ensure the best results',
+                plansTitle: 'Subscription Plans',
+                silverBadge: 'Silver',
+                silverTitle: 'Silver Plan',
+                silverQuestions: '1000 Questions',
+                goldBadge: 'Gold',
+                goldTitle: 'Gold Plan',
+                goldQuestions: '2500 Questions',
+                comingSoonTitle: '🚀 Coming Soon to Stores',
+                comingSoonText: 'The app is currently in final development and will be available soon on:',
+                copyright: '© 2025 Agtiaz. All rights reserved.',
+                contactText: 'Contact: appagtiaz@gmail.com',
+                // About Section
+                aboutTitle: 'About the App',
+                aboutText1: 'Agtiaz is a specialized educational app designed to help teachers in Saudi Arabia optimally prepare for the Teachers Professional License Test. We provide over 2500 questions covering all educational and specialized standards, with detailed justifications for each answer to ensure comprehensive understanding.',
+                aboutText2: 'The app provides a professional educational experience with progress tracking, detailed statistics, and error review. We are committed to providing high-quality, constantly updated content to ensure teachers succeed in their professional exams.',
+                // Email Policy
+                emailPolicyTitle: 'Email Communication Policy',
+                emailPolicySubtitle1: 'Types of Messages We Send',
+                emailType1: '<strong>Verification Codes (OTP):</strong> One-time temporary codes for identity verification during registration or login',
+                emailType2: '<strong>Password Recovery:</strong> Password reset messages when requested',
+                emailType3: '<strong>Subscription Notifications:</strong> Subscription confirmations and payment receipts',
+                emailType4: '<strong>Service Updates:</strong> Important notifications about the app and educational content (optional)',
+                emailPolicySubtitle2: 'Our Commitment to Your Privacy',
+                emailCommitment: 'We respect your privacy and commit to sending only necessary messages. We will not share your email with third parties for marketing purposes. All optional educational messages can be unsubscribed from at any time.',
+                emailPolicySubtitle3: 'Unsubscribe',
+                unsubscribeInfo: 'You can unsubscribe from optional educational messages at any time through:',
+                unsubscribeMethod1: 'App settings (notification preferences)',
+                unsubscribeMethod2: 'The link at the bottom of each email message',
+                unsubscribeMethod3: 'Contact us directly at: appagtiaz@gmail.com',
+                essentialEmailsNote: '<strong>Note:</strong> Essential messages (OTP, password reset, payment receipts) are necessary for service operation and cannot be unsubscribed from.',
+                // Privacy Policy
+                privacyPolicyTitle: 'Privacy Policy',
+                privacySubtitle1: 'Data Collection and Use',
+                dataCollection: 'We collect and use the following data to provide our services:',
+                dataType1: '<strong>Email:</strong> For authentication, password reset, and communication',
+                dataType2: '<strong>Account Information:</strong> Name and educational progress',
+                dataType3: '<strong>Usage Data:</strong> Performance statistics and test progress',
+                dataType4: '<strong>Payment Information:</strong> Processed securely through payment processor (we do not store card data)',
+                privacySubtitle2: 'Data Protection',
+                dataSecurity: 'We use industry-standard security measures to protect your data, including encryption and secure servers. All data is stored on secure cloud servers with regular backups.',
+                privacySubtitle3: 'Third-Party Services',
+                thirdPartyServices: 'We use the following services to operate the app:',
+                service1: '<strong>Amazon Web Services (AWS):</strong> For sending emails (OTP and notifications)',
+                service2: '<strong>MongoDB Atlas:</strong> For secure data storage',
+                service3: '<strong>Payment Processors:</strong> For secure payment processing',
+                privacySubtitle4: 'Your Rights',
+                userRights: 'You have the right to:',
+                right1: 'Access your personal data',
+                right2: 'Modify or delete your data',
+                right3: 'Export your data',
+                right4: 'Delete your account at any time',
+                contactForRights: 'For privacy inquiries, contact us: appagtiaz@gmail.com',
+                // Terms of Service
+                tosTitle: 'Terms of Service',
+                tosSubtitle1: 'Acceptance of Terms',
+                tosAcceptance: 'By using the Agtiaz app, you agree to comply with these terms. If you do not agree with any of these terms, please do not use the app.',
+                tosSubtitle2: 'Service Use',
+                usage1: 'The app is for personal and educational use only',
+                usage2: 'You must be 18 years or older to register',
+                usage3: 'You are responsible for maintaining the confidentiality of your account',
+                usage4: 'Sharing or distributing test content without permission is prohibited',
+                tosSubtitle3: 'Subscriptions and Payments',
+                subscriptionTerms: 'We offer multiple subscription plans (free and paid). All payments are processed through official app stores (App Store / Google Play) according to their policies.',
+                tosSubtitle4: 'Refund Policy',
+                refundPolicy: 'Refunds are subject to Apple App Store and Google Play Store policies. To obtain a refund, please contact the store from which you made the purchase directly. In exceptional cases, you can contact us at appagtiaz@gmail.com.',
+                tosSubtitle5: 'Intellectual Property',
+                intellectualProperty: 'All content in the app (questions, explanations, design) is protected by intellectual property rights. Copying or distributing it without written permission is prohibited.',
+                tosSubtitle6: 'Service Termination',
+                termination: 'We reserve the right to suspend or terminate your account in case of violation of these terms. You can close your account at any time through the app settings.',
+                // Contact Section
+                contactTitle: 'Contact Us',
+                contactIntro: 'We are here to help! If you have any inquiries or issues, contact us:',
+                emailLabel: 'Email',
+                websiteLabel: 'Website',
+                responseLabel: 'Response Time',
+                responseTime: 'Usually within 24-48 hours'
+            }
+        };
+
+        let currentLang = 'ar';
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'ar' ? 'en' : 'ar';
+            const html = document.getElementById('htmlRoot');
+            const lang = translations[currentLang];
+
+            // Update direction and language
+            html.setAttribute('dir', currentLang === 'ar' ? 'rtl' : 'ltr');
+            html.setAttribute('lang', currentLang);
+
+            // Update all content
+            document.getElementById('pageTitle').textContent = lang.pageTitle;
+            document.getElementById('metaDescription').setAttribute('content', lang.metaDescription);
+            document.getElementById('langBtn').textContent = lang.langBtn;
+            document.getElementById('devBadge').textContent = lang.devBadge;
+            document.getElementById('subtitle').textContent = lang.subtitle;
+
+            document.getElementById('feature1Title').textContent = lang.feature1Title;
+            document.getElementById('feature1Text').textContent = lang.feature1Text;
+            document.getElementById('feature2Title').textContent = lang.feature2Title;
+            document.getElementById('feature2Text').textContent = lang.feature2Text;
+            document.getElementById('feature3Title').textContent = lang.feature3Title;
+            document.getElementById('feature3Text').textContent = lang.feature3Text;
+            document.getElementById('feature4Title').textContent = lang.feature4Title;
+            document.getElementById('feature4Text').textContent = lang.feature4Text;
+
+            document.getElementById('plansTitle').textContent = lang.plansTitle;
+            document.getElementById('silverBadge').textContent = lang.silverBadge;
+            document.getElementById('silverTitle').textContent = lang.silverTitle;
+            document.getElementById('silverQuestions').textContent = lang.silverQuestions;
+            document.getElementById('goldBadge').textContent = lang.goldBadge;
+            document.getElementById('goldTitle').textContent = lang.goldTitle;
+            document.getElementById('goldQuestions').textContent = lang.goldQuestions;
+
+            document.getElementById('comingSoonTitle').textContent = lang.comingSoonTitle;
+            document.getElementById('comingSoonText').textContent = lang.comingSoonText;
+            document.getElementById('copyright').textContent = lang.copyright;
+            document.getElementById('contactText').textContent = lang.contactText;
+
+            // About Section
+            document.getElementById('aboutTitle').textContent = lang.aboutTitle;
+            document.getElementById('aboutText1').textContent = lang.aboutText1;
+            document.getElementById('aboutText2').textContent = lang.aboutText2;
+
+            // Email Policy
+            document.getElementById('emailPolicyTitle').textContent = lang.emailPolicyTitle;
+            document.getElementById('emailPolicySubtitle1').textContent = lang.emailPolicySubtitle1;
+            document.getElementById('emailType1').innerHTML = lang.emailType1;
+            document.getElementById('emailType2').innerHTML = lang.emailType2;
+            document.getElementById('emailType3').innerHTML = lang.emailType3;
+            document.getElementById('emailType4').innerHTML = lang.emailType4;
+            document.getElementById('emailPolicySubtitle2').textContent = lang.emailPolicySubtitle2;
+            document.getElementById('emailCommitment').textContent = lang.emailCommitment;
+            document.getElementById('emailPolicySubtitle3').textContent = lang.emailPolicySubtitle3;
+            document.getElementById('unsubscribeInfo').textContent = lang.unsubscribeInfo;
+            document.getElementById('unsubscribeMethod1').textContent = lang.unsubscribeMethod1;
+            document.getElementById('unsubscribeMethod2').textContent = lang.unsubscribeMethod2;
+            document.getElementById('unsubscribeMethod3').textContent = lang.unsubscribeMethod3;
+            document.getElementById('essentialEmailsNote').innerHTML = lang.essentialEmailsNote;
+
+            // Privacy Policy
+            document.getElementById('privacyPolicyTitle').textContent = lang.privacyPolicyTitle;
+            document.getElementById('privacySubtitle1').textContent = lang.privacySubtitle1;
+            document.getElementById('dataCollection').textContent = lang.dataCollection;
+            document.getElementById('dataType1').innerHTML = lang.dataType1;
+            document.getElementById('dataType2').innerHTML = lang.dataType2;
+            document.getElementById('dataType3').innerHTML = lang.dataType3;
+            document.getElementById('dataType4').innerHTML = lang.dataType4;
+            document.getElementById('privacySubtitle2').textContent = lang.privacySubtitle2;
+            document.getElementById('dataSecurity').textContent = lang.dataSecurity;
+            document.getElementById('privacySubtitle3').textContent = lang.privacySubtitle3;
+            document.getElementById('thirdPartyServices').textContent = lang.thirdPartyServices;
+            document.getElementById('service1').innerHTML = lang.service1;
+            document.getElementById('service2').innerHTML = lang.service2;
+            document.getElementById('service3').innerHTML = lang.service3;
+            document.getElementById('privacySubtitle4').textContent = lang.privacySubtitle4;
+            document.getElementById('userRights').textContent = lang.userRights;
+            document.getElementById('right1').textContent = lang.right1;
+            document.getElementById('right2').textContent = lang.right2;
+            document.getElementById('right3').textContent = lang.right3;
+            document.getElementById('right4').textContent = lang.right4;
+            document.getElementById('contactForRights').textContent = lang.contactForRights;
+
+            // Terms of Service
+            document.getElementById('tosTitle').textContent = lang.tosTitle;
+            document.getElementById('tosSubtitle1').textContent = lang.tosSubtitle1;
+            document.getElementById('tosAcceptance').textContent = lang.tosAcceptance;
+            document.getElementById('tosSubtitle2').textContent = lang.tosSubtitle2;
+            document.getElementById('usage1').textContent = lang.usage1;
+            document.getElementById('usage2').textContent = lang.usage2;
+            document.getElementById('usage3').textContent = lang.usage3;
+            document.getElementById('usage4').textContent = lang.usage4;
+            document.getElementById('tosSubtitle3').textContent = lang.tosSubtitle3;
+            document.getElementById('subscriptionTerms').textContent = lang.subscriptionTerms;
+            document.getElementById('tosSubtitle4').textContent = lang.tosSubtitle4;
+            document.getElementById('refundPolicy').textContent = lang.refundPolicy;
+            document.getElementById('tosSubtitle5').textContent = lang.tosSubtitle5;
+            document.getElementById('intellectualProperty').textContent = lang.intellectualProperty;
+            document.getElementById('tosSubtitle6').textContent = lang.tosSubtitle6;
+            document.getElementById('termination').textContent = lang.termination;
+
+            // Contact Section
+            document.getElementById('contactTitle').textContent = lang.contactTitle;
+            document.getElementById('contactIntro').textContent = lang.contactIntro;
+            document.getElementById('emailLabel').textContent = lang.emailLabel;
+            document.getElementById('websiteLabel').textContent = lang.websiteLabel;
+            document.getElementById('responseLabel').textContent = lang.responseLabel;
+            document.getElementById('responseTime').textContent = lang.responseTime;
+        }
+
+        // Create floating particles
+        function createParticles() {
+            const container = document.getElementById('particles');
+            const particleCount = 50;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 20 + 's';
+                particle.style.animationDuration = (15 + Math.random() * 20) + 's';
+                container.appendChild(particle);
+            }
+        }
+
+        createParticles();
+    </script>
+</body>
+
+</html>
