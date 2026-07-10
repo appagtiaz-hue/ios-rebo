@@ -38,6 +38,8 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
     environment:
+      groups:
+        - ios
       vars:
         BUNDLE_ID: "com.agtiaz.app"
         IPA_PATH: "build/ios/ipa/agtiaz-unsigned.ipa"
