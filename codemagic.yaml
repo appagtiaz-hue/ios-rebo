@@ -118,3 +118,120 @@ workflows:
       - build/ios/ipa/agtiaz-unsigned.ipa
       - build/codemagic_logs/*.txt
       - /tmp/xcodebuild_logs/*.log
+  ios-release:
+    name: iOS Signed Release - TestFlight
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: agtiaz
+    environment:
+      groups:
+        - ios_release
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.agtiaz.app
+      vars:
+        BUNDLE_ID: "com.agtiaz.app"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Validate inputs and prepare Firebase configuration
+        script: |
+          set -euo pipefail
+          : "${APP_STORE_APPLE_ID:?Add the numeric Apple ID from App Store Connect to the ios_release environment group.}"
+          : "${GOOGLE_SERVICE_INFO_PLIST_BASE64:?Add the Base64 iOS Firebase configuration to the ios_release environment group.}"
+          [[ "$APP_STORE_APPLE_ID" =~ ^[0-9]+$ ]] || { echo "APP_STORE_APPLE_ID must be the numeric app Apple ID, not the bundle identifier."; exit 1; }
+          mkdir -p build/codemagic_logs
+          test -f ios/Podfile || { echo "ios/Podfile is missing from this checkout. Commit the existing iOS Podfile before building."; exit 1; }
+          python3 <<'PY'
+          import base64
+          import os
+          import pathlib
+          import plistlib
+
+          try:
+              raw = base64.b64decode("".join(os.environ["GOOGLE_SERVICE_INFO_PLIST_BASE64"].split()), validate=True)
+              config = plistlib.loads(raw)
+          except Exception:
+              raise SystemExit("Invalid GOOGLE_SERVICE_INFO_PLIST_BASE64: provide a Base64-encoded GoogleService-Info.plist.")
+          if config.get("BUNDLE_ID") != os.environ["BUNDLE_ID"]:
+              raise SystemExit("Firebase BUNDLE_ID must match com.agtiaz.app.")
+          for key in ("GOOGLE_APP_ID", "API_KEY", "GCM_SENDER_ID", "PROJECT_ID", "CLIENT_ID", "REVERSED_CLIENT_ID"):
+              if not isinstance(config.get(key), str) or not config[key].strip():
+                  raise SystemExit("Firebase configuration is missing " + key + ". Download the iOS plist with Google Sign-In enabled.")
+          project = pathlib.Path("ios/Runner.xcodeproj/project.pbxproj").read_text()
+          if "GoogleService-Info.plist in Resources" not in project:
+              raise SystemExit("GoogleService-Info.plist must be included in Runner Copy Bundle Resources.")
+          info_path = pathlib.Path("ios/Runner/Info.plist")
+          with info_path.open("rb") as source:
+              info = plistlib.load(source)
+          scheme = config["REVERSED_CLIENT_ID"]
+          url_types = info.setdefault("CFBundleURLTypes", [])
+          if not any(scheme in item.get("CFBundleURLSchemes", []) for item in url_types):
+              url_types.append({"CFBundleTypeRole": "Editor", "CFBundleURLSchemes": [scheme]})
+          pathlib.Path("ios/Runner/GoogleService-Info.plist").write_bytes(raw)
+          with info_path.open("wb") as target:
+              plistlib.dump(info, target, sort_keys=False)
+          PY
+          plutil -lint ios/Runner/GoogleService-Info.plist ios/Runner/Info.plist
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Install CocoaPods dependencies
+        script: |
+          set -euo pipefail
+          cd ios
+          pod install
+      - name: Flutter analyze diagnostic
+        script: |
+          set +e
+          flutter analyze > build/codemagic_logs/flutter_analyze.txt 2>&1
+          ANALYZE_EXIT=$?
+          cat build/codemagic_logs/flutter_analyze.txt
+          echo "flutter analyze exit code: $ANALYZE_EXIT (diagnostic; the release compiler remains blocking)"
+          exit 0
+      - name: Apply App Store signing profiles
+        script: |
+          set -euo pipefail
+          xcode-project use-profiles
+          test -f /Users/builder/export_options.plist
+      - name: Build signed iPhoneOS IPA
+        script: |
+          set -euo pipefail
+          LATEST_BUILD=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID")
+          LATEST_BUILD=${LATEST_BUILD:-0}
+          BASE_BUILD=$(awk -F+ '/^version:/ {gsub(/[[:space:]]/, "", $2); print $2}' pubspec.yaml)
+          [[ "$LATEST_BUILD" =~ ^[0-9]+$ ]] || { echo "Unable to obtain a numeric TestFlight build number."; exit 1; }
+          [[ "$BASE_BUILD" =~ ^[0-9]+$ ]] || { echo "pubspec.yaml must contain a numeric build number."; exit 1; }
+          if [ "$LATEST_BUILD" -lt "$BASE_BUILD" ]; then LATEST_BUILD=$BASE_BUILD; fi
+          NEXT_BUILD=$((LATEST_BUILD + 1))
+          flutter build ipa --release --build-number="$NEXT_BUILD" \
+            --export-options-plist=/Users/builder/export_options.plist \
+            2>&1 | tee build/codemagic_logs/ios_release_build.txt
+      - name: Verify signed device IPA
+        script: |
+          set -euo pipefail
+          shopt -s nullglob
+          IPAS=(build/ios/ipa/*.ipa)
+          [ "${#IPAS[@]}" -eq 1 ] || { echo "Expected exactly one exported signed IPA."; exit 1; }
+          unzip -l "${IPAS[0]}" > build/codemagic_logs/ipa_contents.txt
+          grep -q 'Payload/Runner.app/' build/codemagic_logs/ipa_contents.txt
+          VERIFY_DIR=$(mktemp -d)
+          unzip -q "${IPAS[0]}" -d "$VERIFY_DIR"
+          APP="$VERIFY_DIR/Payload/Runner.app"
+          test -f "$APP/embedded.mobileprovision"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "$BUNDLE_ID"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :DTPlatformName' "$APP/Info.plist")" = "iphoneos"
+          codesign --verify --deep --strict "$APP"
+          cp "${IPAS[0]}" build/ios/agtiaz-signed.ipa
+    artifacts:
+      - build/ios/agtiaz-signed.ipa
+      - build/codemagic_logs/*.txt
+      - build/ios/archive/*.xcarchive/dSYMs/*.dSYM
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Upload for internal TestFlight testing; do not request external beta or App Store review.
+        submit_to_testflight: false
+        submit_to_app_store: false
