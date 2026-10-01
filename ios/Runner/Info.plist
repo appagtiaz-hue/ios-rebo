@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>اجتياز يحتاج الوصول إلى مكتبة الصور لاختيار صورة الملف الشخصي.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>مكتبة اختيار صورة الملف الشخصي في اجتياز تتضمن دعم الكاميرا. لا يفتح التطبيق الكاميرا أو يلتقط صورًا دون اختيارك وموافقتك.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
