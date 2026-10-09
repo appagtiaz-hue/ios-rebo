@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../models/payment_plan.dart';
 import '../models/user.dart';
@@ -29,6 +30,7 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
   User? _currentUser;
   bool _isProcessing = false;
   bool get _isGooglePlayBillingPlatform => Platform.isAndroid;
+  ProductDetails? _appleProduct;
 
   @override
   void initState() {
@@ -57,7 +59,7 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
         setState(() => _isProcessing = false);
 
         // Security/Logic Check: Only process as current plan success if the product IDs match
-        final bool isCurrentPlan = productId == _resolveGooglePlayProductId();
+        final bool isCurrentPlan = productId == _resolveStoreProductId();
 
         if (isCurrentPlan) {
           _handlePaymentSuccess(transactionId);
@@ -77,6 +79,27 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
         }
       },
     );
+    if (Platform.isIOS) {
+      _loadAppleProduct();
+    }
+  }
+
+  Future<void> _loadAppleProduct() async {
+    final id = _resolveStoreProductId();
+    if (id.isEmpty) return;
+    try {
+      final products = await InAppPurchaseService.instance.loadProducts([id]);
+      if (!mounted) return;
+      setState(() {
+        _appleProduct = products
+            .where((product) => product.id == id)
+            .firstOrNull;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+      }
+    }
   }
 
   Future<void> _loadCurrentUser() async {
@@ -89,7 +112,7 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
   }
 
   Future<void> _restorePurchase() async {
-    if (!_isGooglePlayBillingPlatform) {
+    if (!_isGooglePlayBillingPlatform && !Platform.isIOS) {
       _showErrorDialog('iOS', 'المشتريات غير متاحة حالياً على iOS');
       return;
     }
@@ -399,6 +422,7 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
   }
 
   String _paymentButtonText() {
+    if (Platform.isIOS) return 'شراء عبر App Store';
     if (!_isGooglePlayBillingPlatform) {
       return 'المشتريات غير متاحة على iOS';
     }
@@ -407,6 +431,9 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
   }
 
   String _securePaymentNotice() {
+    if (Platform.isIOS) {
+      return 'شراء مرة واحدة للوصول الدائم؛ يتم الدفع بأمان عبر App Store';
+    }
     if (!_isGooglePlayBillingPlatform) {
       return 'المشتريات غير متاحة حالياً على iOS';
     }
@@ -427,6 +454,17 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
       return 'agtiaz_gold';
     }
     return 'agtiaz_premium';
+  }
+
+  String _resolveStoreProductId() => Platform.isIOS
+      ? (widget.selectedPlan.appleProductId ?? '').trim()
+      : _resolveGooglePlayProductId();
+
+  String _displayTotal() {
+    if (Platform.isIOS) {
+      return _appleProduct?.price ?? 'السعر غير متاح من متجر أبل';
+    }
+    return '${_getDisplayPrice(widget.selectedPlan).toStringAsFixed(0)} ${AppLocalizations.of(context)?.translate('currency') ?? widget.selectedPlan.currency}';
   }
 
   @override
@@ -537,7 +575,7 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
                                       context,
                                     )?.translate('total') ??
                                     'الإجمالي',
-                                '${_getDisplayPrice(widget.selectedPlan).toStringAsFixed(0)} ${AppLocalizations.of(context)?.translate('currency') ?? widget.selectedPlan.currency}',
+                                _displayTotal(),
                                 _primaryColor,
                                 isTotal: true,
                               ),
@@ -571,25 +609,39 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
                             onPressed: _isProcessing
                                 ? null
                                 : () async {
-                                    if (!_isGooglePlayBillingPlatform) {
+                                    if (!_isGooglePlayBillingPlatform &&
+                                        !Platform.isIOS) {
                                       _showErrorDialog(
                                         'iOS',
                                         'المشتريات غير متاحة حالياً على iOS',
                                       );
                                       return;
                                     }
+                                    if (Platform.isIOS &&
+                                        _resolveStoreProductId().isEmpty) {
+                                      _showErrorDialog(
+                                        'App Store',
+                                        'هذه الباقة غير مهيأة للشراء على أبل بعد',
+                                      );
+                                      return;
+                                    }
                                     setState(() => _isProcessing = true);
                                     try {
-                                      final playId =
-                                          _resolveGooglePlayProductId();
+                                      final playId = _resolveStoreProductId();
 
                                       final products =
                                           await InAppPurchaseService.instance
                                               .loadProducts([playId]);
 
                                       if (products.isNotEmpty) {
-                                        await InAppPurchaseService.instance
-                                            .buyProduct(products.first);
+                                        final started =
+                                            await InAppPurchaseService.instance
+                                                .buyProduct(products.first);
+                                        if (Platform.isIOS &&
+                                            !started &&
+                                            mounted) {
+                                          setState(() => _isProcessing = false);
+                                        }
                                         // Flow continues in callbacks
                                       } else {
                                         setState(() => _isProcessing = false);
@@ -598,12 +650,14 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
                                                 context,
                                               )?.translate('storeError') ??
                                               'خطأ في المتجر',
-                                          AppLocalizations.of(
-                                                context,
-                                              )?.translate(
-                                                'productNotFound',
-                                              ) ??
-                                              'المنتج غير موجود في متجر Google Play',
+                                          Platform.isIOS
+                                              ? 'المنتج غير متاح في متجر أبل؛ تأكد من إعداد الباقة ومنطقة الحساب'
+                                              : AppLocalizations.of(
+                                                      context,
+                                                    )?.translate(
+                                                      'productNotFound',
+                                                    ) ??
+                                                    'المنتج غير موجود في متجر Google Play',
                                         );
                                       }
                                     } catch (e) {

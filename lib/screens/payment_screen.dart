@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../constants/colors.dart';
@@ -104,7 +106,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 
   bool _hasActiveSubscriptionForPlan(String planId) {
-    if (_currentUser?.subscriptionPlanId == null) {
+    if (_currentUser == null ||
+        (!Platform.isIOS && _currentUser!.subscriptionPlanId == null)) {
       print('DEBUG: No subscriptionPlanId');
       return false;
     }

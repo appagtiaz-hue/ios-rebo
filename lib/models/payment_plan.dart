@@ -112,6 +112,7 @@ class PaymentPlan {
   final String primaryColor;
   final String secondaryColor;
   final String? googlePlayProductId;
+  final String? appleProductId;
   final List<PlanTab> tabs;
 
   PaymentPlan({
@@ -128,6 +129,7 @@ class PaymentPlan {
     this.primaryColor = '#1B5E20',
     this.secondaryColor = '#F6C41C',
     this.googlePlayProductId,
+    this.appleProductId,
     this.tabs = const [],
   });
 
@@ -148,6 +150,7 @@ class PaymentPlan {
       primaryColor: json['primaryColor'] ?? '#1B5E20',
       secondaryColor: json['secondaryColor'] ?? '#F6C41C',
       googlePlayProductId: json['googlePlayProductId'],
+      appleProductId: json['appleProductId'],
       tabs:
           (json['tabs'] as List<dynamic>?)
               ?.map((tab) => PlanTab.fromJson(tab as Map<String, dynamic>))
@@ -171,6 +174,7 @@ class PaymentPlan {
       'primaryColor': primaryColor,
       'secondaryColor': secondaryColor,
       'googlePlayProductId': googlePlayProductId,
+      'appleProductId': appleProductId,
       'tabs': tabs.map((tab) => tab.toJson()).toList(),
     };
   }
@@ -189,6 +193,7 @@ class PaymentPlan {
     String? primaryColor,
     String? secondaryColor,
     String? googlePlayProductId,
+    String? appleProductId,
     List<PlanTab>? tabs,
   }) {
     return PaymentPlan(
@@ -205,6 +210,7 @@ class PaymentPlan {
       primaryColor: primaryColor ?? this.primaryColor,
       secondaryColor: secondaryColor ?? this.secondaryColor,
       googlePlayProductId: googlePlayProductId ?? this.googlePlayProductId,
+      appleProductId: appleProductId ?? this.appleProductId,
       tabs: tabs ?? this.tabs,
     );
   }

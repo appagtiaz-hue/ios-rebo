@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:http/http.dart' as http;
 import '../config/environment.dart';
@@ -15,6 +16,8 @@ class InAppPurchaseService {
   final InAppPurchase _iap = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   bool _isAvailable = false;
+  Future<void> _appleUpdates = Future<void>.value();
+  Future<void>? _appleInitialization;
 
   // Callback for UI to listen to updates
   Function(String message, bool isError)? _statusCallback;
@@ -26,10 +29,15 @@ class InAppPurchaseService {
   bool get isStoreAvailable => _isAvailable;
 
   bool get _isGooglePlayBillingPlatform => Platform.isAndroid;
+  bool get _isSupportedStore => _isGooglePlayBillingPlatform || Platform.isIOS;
 
   /// Initialize the purchase stream listener
-  Future<void> initialize() async {
-    if (!_isGooglePlayBillingPlatform) {
+  Future<void> initialize() => Platform.isIOS
+      ? (_appleInitialization ??= _initializeStore())
+      : _initializeStore();
+
+  Future<void> _initializeStore() async {
+    if (!_isSupportedStore) {
       _isAvailable = false;
       print('In-app purchases are disabled on this platform.');
       return;
@@ -46,7 +54,19 @@ class InAppPurchaseService {
     final Stream<List<PurchaseDetails>> purchaseUpdated = _iap.purchaseStream;
     _subscription = purchaseUpdated.listen(
       (purchaseDetailsList) {
-        _listenToPurchaseUpdated(purchaseDetailsList);
+        if (Platform.isIOS) {
+          // Serialize Apple updates so restore and purchase cannot grant twice.
+          _appleUpdates = _appleUpdates
+              .then((_) => _listenToPurchaseUpdated(purchaseDetailsList))
+              .catchError((Object error) {
+                _statusCallback?.call(
+                  'تعذر معالجة شراء أبل؛ أعد استعادة المشتريات',
+                  true,
+                );
+              });
+        } else {
+          _listenToPurchaseUpdated(purchaseDetailsList);
+        }
       },
       onDone: () {
         _subscription?.cancel();
@@ -78,7 +98,10 @@ class InAppPurchaseService {
 
   /// Load products from the store
   Future<List<ProductDetails>> loadProducts(List<String> productIds) async {
-    if (!_isGooglePlayBillingPlatform) {
+    if (Platform.isIOS) {
+      await initialize();
+    }
+    if (!_isSupportedStore) {
       _statusCallback?.call('المشتريات غير متاحة حالياً على iOS', true);
       return [];
     }
@@ -89,7 +112,10 @@ class InAppPurchaseService {
 
     if (!_isAvailable) {
       if (_statusCallback != null) {
-        _statusCallback!('متجر Google Play غير متاح', true);
+        _statusCallback!(
+          Platform.isIOS ? 'متجر أبل غير متاح' : 'متجر Google Play غير متاح',
+          true,
+        );
       }
       return [];
     }
@@ -127,14 +153,20 @@ class InAppPurchaseService {
 
   /// Initiate a purchase
   Future<bool> buyProduct(ProductDetails product) async {
-    if (!_isGooglePlayBillingPlatform) {
+    if (Platform.isIOS) {
+      await initialize();
+    }
+    if (!_isSupportedStore) {
       _statusCallback?.call('المشتريات غير متاحة حالياً على iOS', true);
       return false;
     }
 
     if (!_isAvailable) {
       if (_statusCallback != null) {
-        _statusCallback!('متجر Google Play غير متاح', true);
+        _statusCallback!(
+          Platform.isIOS ? 'متجر أبل غير متاح' : 'متجر Google Play غير متاح',
+          true,
+        );
       }
       return false;
     }
@@ -142,6 +174,7 @@ class InAppPurchaseService {
     try {
       final PurchaseParam purchaseParam = PurchaseParam(
         productDetails: product,
+        applicationUserName: Platform.isIOS ? await _appleAccountToken() : null,
       );
 
       // Use buyNonConsumable for subscriptions and one-time purchases
@@ -167,14 +200,20 @@ class InAppPurchaseService {
 
   /// Restore previous purchases (for users who reinstall or change devices)
   Future<void> restorePurchases() async {
-    if (!_isGooglePlayBillingPlatform) {
+    if (Platform.isIOS) {
+      await initialize();
+    }
+    if (!_isSupportedStore) {
       _statusCallback?.call('استعادة المشتريات غير متاحة حالياً على iOS', true);
       return;
     }
 
     if (!_isAvailable) {
       if (_statusCallback != null) {
-        _statusCallback!('متجر Google Play غير متاح', true);
+        _statusCallback!(
+          Platform.isIOS ? 'متجر أبل غير متاح' : 'متجر Google Play غير متاح',
+          true,
+        );
       }
       return;
     }
@@ -184,7 +223,13 @@ class InAppPurchaseService {
         _statusCallback!('جاري استعادة المشتريات...', false);
       }
 
-      await _iap.restorePurchases();
+      if (Platform.isIOS) {
+        await _iap.restorePurchases(
+          applicationUserName: await _appleAccountToken(),
+        );
+      } else {
+        await _iap.restorePurchases();
+      }
       // Results will come through the purchase stream
     } catch (e) {
       print('❌ Restore purchases error: $e');
@@ -198,6 +243,7 @@ class InAppPurchaseService {
     List<PurchaseDetails> purchaseDetailsList,
   ) async {
     for (final PurchaseDetails purchaseDetails in purchaseDetailsList) {
+      bool appleVerified = false;
       print(
         '📦 Purchase Update: ${purchaseDetails.productID} - Status: ${purchaseDetails.status}',
       );
@@ -231,6 +277,7 @@ class InAppPurchaseService {
           }
 
           final bool valid = await _verifyPurchase(purchaseDetails);
+          appleVerified = valid;
           if (valid) {
             if (_onPurchaseSuccess != null) {
               _onPurchaseSuccess!(
@@ -247,7 +294,11 @@ class InAppPurchaseService {
           }
         }
 
-        if (purchaseDetails.pendingCompletePurchase) {
+        if (purchaseDetails.pendingCompletePurchase &&
+            (!Platform.isIOS ||
+                appleVerified ||
+                purchaseDetails.status == PurchaseStatus.error ||
+                purchaseDetails.status == PurchaseStatus.canceled)) {
           await _iap.completePurchase(purchaseDetails);
         }
       }
@@ -256,6 +307,9 @@ class InAppPurchaseService {
 
   /// Verify purchase with our backend
   Future<bool> _verifyPurchase(PurchaseDetails purchaseDetails) async {
+    if (Platform.isIOS) {
+      return _verifyApplePurchase(purchaseDetails);
+    }
     if (!_isGooglePlayBillingPlatform) {
       return false;
     }
@@ -305,6 +359,58 @@ class InAppPurchaseService {
       print('❌ Verification error: $e');
       return false;
     }
+  }
+
+  Future<String> _appleAccountToken() async {
+    final response = await http
+        .get(
+          Uri.parse(
+            '${EnvironmentConfig.baseUrl}/mobile/api/payment/apple/context',
+          ),
+          headers: await AuthService.authHeaders(),
+        )
+        .timeout(const Duration(seconds: 30));
+    if (response.statusCode != 200) {
+      throw StateError(
+        'تعذر تجهيز شراء أبل؛ تأكد من تسجيل الدخول وإعداد السيرفر',
+      );
+    }
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    final token = data['appAccountToken'];
+    if (data['success'] != true ||
+        token is! String ||
+        !RegExp(
+          r'^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$',
+        ).hasMatch(token)) {
+      throw StateError('بيانات حساب الشراء غير صحيحة');
+    }
+    return token;
+  }
+
+  Future<bool> _verifyApplePurchase(PurchaseDetails purchase) async {
+    if (purchase.purchaseID == null) return false;
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+              '${EnvironmentConfig.baseUrl}/mobile/api/payment/verify-apple',
+            ),
+            headers: await AuthService.authHeaders(),
+            body: jsonEncode({
+              'productId': purchase.productID,
+              'transactionId': purchase.purchaseID,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['success'] == true;
+      }
+    } catch (error) {
+      // Keep the transaction unfinished so a later restore can retry verification.
+      debugPrint('Apple purchase verification is temporarily unavailable.');
+    }
+    return false;
   }
 
   // Get current user ID from DatabaseService
