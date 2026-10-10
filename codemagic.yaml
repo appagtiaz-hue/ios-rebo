@@ -223,6 +223,12 @@ workflows:
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "$BUNDLE_ID"
           test "$(/usr/libexec/PlistBuddy -c 'Print :DTPlatformName' "$APP/Info.plist")" = "iphoneos"
           codesign --verify --deep --strict "$APP"
+          codesign -d --entitlements :- "$APP" > "$VERIFY_DIR/signed-entitlements.plist"
+          PUSH_ENV=$(/usr/libexec/PlistBuddy -c 'Print :aps-environment' "$VERIFY_DIR/signed-entitlements.plist" 2>/dev/null || true)
+          [ "$PUSH_ENV" = production ] || { echo "Signed IPA is missing production APNs entitlement. Enable Push Notifications for com.agtiaz.app and regenerate the App Store provisioning profile."; exit 1; }
+          security cms -D -i "$APP/embedded.mobileprovision" > "$VERIFY_DIR/profile.plist"
+          PROFILE_PUSH_ENV=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$VERIFY_DIR/profile.plist" 2>/dev/null || true)
+          [ "$PROFILE_PUSH_ENV" = production ] || { echo "App Store provisioning profile does not permit production push notifications. Regenerate it after enabling Push Notifications."; exit 1; }
           cp "${IPAS[0]}" build/ios/agtiaz-signed.ipa
     artifacts:
       - build/ios/agtiaz-signed.ipa

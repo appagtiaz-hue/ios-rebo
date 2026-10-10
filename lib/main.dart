@@ -10,6 +10,7 @@ import 'services/localization_service.dart';
 import 'l10n/app_localizations.dart';
 import 'services/sync_queue_service.dart';
 import 'services/in_app_purchase_service.dart';
+import 'services/ios_notification_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
@@ -50,6 +51,12 @@ void main() async {
   _initIAP();
 
   runApp(const MyApp());
+
+  if (Platform.isIOS) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(IosNotificationService.instance.synchronize());
+    });
+  }
 
   // Fire-and-forget background warmup after first frame to avoid blocking startup
   _scheduleBackgroundWarmup();

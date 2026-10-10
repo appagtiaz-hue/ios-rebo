@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
+import 'ios_notification_service.dart';
 import 'network_service.dart';
 import 'auth_service.dart';
 
@@ -130,6 +132,10 @@ class NotificationService {
    * Register token with backend for the current user
    */
   static Future<void> updateTokenOnServer(String email) async {
+    if (Platform.isIOS) {
+      await IosNotificationService.instance.synchronize();
+      return;
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       String? token = prefs.getString('fcm_token');
