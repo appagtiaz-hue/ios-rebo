@@ -9,13 +9,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/theme_service.dart';
 import '../services/localization_service.dart';
 import '../services/auth_service.dart';
 import '../l10n/app_localizations.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key, this.onBack, this.user, this.subscriptions});
+  final VoidCallback? onBack;
+  final User? user;
+  final List<Map<String, dynamic>>? subscriptions;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -32,13 +36,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _loadProfileImage();
     _loadLocalName();
-    _loadUserData();
+    if (widget.subscriptions != null) {
+      _useHomeData();
+    } else {
+      _loadUserData();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.subscriptions != null) _useHomeData();
+  }
+
+  void _useHomeData() {
+    currentUser = widget.user;
+    _activeSubscriptions = [
+      for (final subscription in widget.subscriptions!)
+        {
+          ...subscription,
+          'planObject': (subscription['planObject'] as PaymentPlan?)?.toJson(),
+        },
+    ];
   }
 
   String? _localName;
 
   Future<void> _loadLocalName() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _localName = prefs.getString('local_user_name');
     });
@@ -47,6 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _updateLocalName(String newName) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('local_user_name', newName);
+    if (!mounted) return;
     setState(() {
       _localName = newName;
     });
@@ -287,6 +314,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (croppedFile != null) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('profile_image_path', croppedFile.path);
+        if (!mounted) return;
         setState(() {
           _profileImage = File(croppedFile.path);
         });
@@ -307,6 +335,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('profile_image_path');
+      if (!mounted) return;
       setState(() {
         _profileImage = null;
       });
@@ -314,7 +343,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)?.translate('unexpectedError') ?? 'حدث خطأ غير متوقع'),
+            content: Text(
+              AppLocalizations.of(context)?.translate('unexpectedError') ??
+                  'حدث خطأ غير متوقع',
+            ),
             backgroundColor: AppColors.error,
           ),
         );
@@ -328,11 +360,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
         title: Text(
-          AppLocalizations.of(context)?.translate('removeImage') ?? 'إزالة الصورة',
+          AppLocalizations.of(context)?.translate('removeImage') ??
+              'إزالة الصورة',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         content: Text(
-          AppLocalizations.of(context)?.translate('confirmRemoveImage') ?? 'هل أنت متأكد من إزالة الصورة الشخصية؟',
+          AppLocalizations.of(context)?.translate('confirmRemoveImage') ??
+              'هل أنت متأكد من إزالة الصورة الشخصية؟',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         actions: [
@@ -426,6 +460,217 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _showContactDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.symmetric(horizontal: 20.w),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(24.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 20,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: EdgeInsets.all(20.w),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24.r),
+                    topRight: Radius.circular(24.r),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(10.w),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.support_agent_rounded,
+                        color: AppColors.primary,
+                        size: 24.r,
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    Text(
+                      AppLocalizations.of(context)?.translate('contactUs') ??
+                          'تواصل معنا',
+                      style: TextStyle(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                        size: 24.r,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Padding(
+                padding: EdgeInsets.all(20.w),
+                child: Column(
+                  children: [
+                    _buildContactOption(
+                      icon: Icons.chat_rounded,
+                      title:
+                          AppLocalizations.of(context)?.translate('whatsapp') ??
+                          'واتساب',
+                      subtitle: '+966537583811',
+                      color: Color(0xFF25D366), // WhatsApp Green
+                      onTap: () async {
+                        final Uri whatsappLaunchUri =
+                            Uri.https('wa.me', '/966537583811', {
+                              'text':
+                                  AppLocalizations.of(
+                                    context,
+                                  )?.translate('supportWhatsappMessage') ??
+                                  'السلام عليكم، أحتاج مساعدة من الدعم الفني.',
+                            });
+                        await _launchUrl(whatsappLaunchUri);
+                      },
+                    ),
+                    SizedBox(height: 12.h),
+                    _buildContactOption(
+                      icon: Icons.email_outlined,
+                      title:
+                          AppLocalizations.of(context)?.translate('email') ??
+                          'البريد الإلكتروني',
+                      subtitle: 'agtiazsupp@gmail.com',
+                      color: Color(0xFFEA4335), // Google Red
+                      onTap: () async {
+                        final Uri emailLaunchUri = Uri(
+                          scheme: 'mailto',
+                          path: 'agtiazsupp@gmail.com',
+                        );
+                        await _launchUrl(emailLaunchUri);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContactOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16.r),
+        child: Container(
+          padding: EdgeInsets.all(12.w),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(16.r),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(10.w),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Icon(icon, color: color, size: 24.r),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16.r,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launchUrl(Uri url) async {
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppLocalizations.of(context)?.translate('cannotOpenLink') ??
+                    'لا يمكن فتح الرابط',
+              ),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)?.translate('unexpectedError') ??
+                  'حدث خطأ غير متوقع',
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -466,7 +711,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       alignment: Alignment.topRight,
                       child: IconButton(
                         icon: Icon(Icons.arrow_back, color: AppColors.white),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed:
+                            widget.onBack ?? () => Navigator.pop(context),
                         padding: EdgeInsets.zero,
                         constraints: BoxConstraints(),
                       ),
@@ -856,90 +1102,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         }).toList(),
 
-                      _buildListTile(
-                        icon: Icons.sync,
-                        title:
-                            AppLocalizations.of(
-                              context,
-                            )?.translate('updateData') ??
-                            'تحديث البيانات',
-                        subtitle:
-                            AppLocalizations.of(
-                              context,
-                            )?.translate('syncWithServer') ??
-                            'مزامنة مع الخادم',
-                        onTap: () async {
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (context) => Center(
-                              child: Container(
-                                padding: EdgeInsets.all(24.w),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).cardColor,
-                                  borderRadius: BorderRadius.circular(16.r),
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(
-                                      color: AppColors.primary,
-                                    ),
-                                    SizedBox(height: 12.h),
-                                    Text(
-                                      AppLocalizations.of(
-                                            context,
-                                          )?.translate('updatingData') ??
-                                          'جاري تحديث البيانات...',
-                                      style: TextStyle(
-                                        fontSize: 16.sp,
-                                        fontWeight: FontWeight.w600,
-                                        color: Theme.of(
-                                          context,
-                                        ).textTheme.bodyLarge?.color,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-
-                          await DatabaseService.syncOfflineContentIfOnline();
-                          await _loadUserData();
-
-                          if (mounted) Navigator.pop(context);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.check_circle,
-                                      color: AppColors.white,
-                                    ),
-                                    SizedBox(width: 12.w),
-                                    Text(
-                                      AppLocalizations.of(
-                                            context,
-                                          )?.translate('dataUpdatedSuccess') ??
-                                          'تم تحديث البيانات بنجاح!',
-                                    ),
-                                  ],
-                                ),
-                                backgroundColor: AppColors.success,
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12.r),
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-
-                      SizedBox(height: 16.h),
-
                       // Account Settings
                       _buildSectionHeader(
                         AppLocalizations.of(context)?.translate('settings') ??
@@ -976,6 +1138,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         iconColor: AppColors.primary,
                       ),
 
+                      SizedBox(height: 16.h),
+
+                      KeyedSubtree(
+                        key: const ValueKey('profile-support-section'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSectionHeader(
+                              AppLocalizations.of(
+                                context,
+                              )!.translate('supportSection'),
+                            ),
+                            KeyedSubtree(
+                              key: const ValueKey('profile-contact-support'),
+                              child: _buildListTile(
+                                icon: Icons.support_agent_rounded,
+                                title: AppLocalizations.of(
+                                  context,
+                                )!.translate('contactUs'),
+                                subtitle: AppLocalizations.of(
+                                  context,
+                                )!.translate('contactUsChannels'),
+                                onTap: () => _showContactDialog(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       SizedBox(height: 16.h),
 
                       // Account Actions

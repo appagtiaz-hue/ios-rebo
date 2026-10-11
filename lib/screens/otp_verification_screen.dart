@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:async';
 import '../constants/colors.dart';
 import '../services/auth_service.dart';
+import '../services/otp_cooldown.dart';
 import '../l10n/app_localizations.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
@@ -30,13 +31,15 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   bool _isLoading = false;
-  int _countdown = 60;
+  int _countdown = OtpCooldown.resendIntervalSeconds;
+  bool _restoringCooldown = true;
   Timer? _timer;
+  DateTime? _cooldownEndsAt;
 
   @override
   void initState() {
     super.initState();
-    _startCountdown();
+    _restoreCountdown();
   }
 
   @override
@@ -51,24 +54,48 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     super.dispose();
   }
 
-  void _startCountdown() {
-    setState(() {
-      _countdown = 60;
-    });
+  Future<void> _restoreCountdown() async {
+    final remaining = await OtpCooldown.remaining(
+      widget.email,
+      widget.type,
+      startIfMissing: true,
+    );
+    if (mounted) {
+      _startCountdown(remaining);
+      setState(() => _restoringCooldown = false);
+    }
+  }
+
+  void _startCountdown(int seconds) {
+    _cooldownEndsAt = DateTime.now().add(Duration(seconds: seconds));
+    setState(() => _countdown = seconds);
     _timer?.cancel();
+    if (seconds == 0) return;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_countdown > 0) {
-        setState(() {
-          _countdown--;
-        });
-      } else {
+      final milliseconds = _cooldownEndsAt!
+          .difference(DateTime.now())
+          .inMilliseconds;
+      final remaining = milliseconds > 0 ? (milliseconds / 1000).ceil() : 0;
+      if (remaining <= 0) {
+        setState(() => _countdown = 0);
         timer.cancel();
+      } else {
+        setState(() => _countdown = remaining);
       }
     });
   }
 
   String _getOTP() {
     return _controllers.map((c) => c.text).join();
+  }
+
+  String _remainingMinutes(int seconds) {
+    final minutes = (seconds / 60).ceil();
+    final key = minutes == 1 ? 'minute' : 'minutes';
+    final unit =
+        AppLocalizations.of(context)?.translate(key) ??
+        (minutes == 1 ? 'دقيقة' : 'دقائق');
+    return '$minutes $unit';
   }
 
   Future<void> _verifyOTP() async {
@@ -149,18 +176,22 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   }
 
   Future<void> _resendOTP() async {
-    if (_countdown > 0) {
-      _showError(
-        '${AppLocalizations.of(context)?.translate('waitBeforeResend') ?? 'يرجى الانتظار'} $_countdown ${AppLocalizations.of(context)?.translate('seconds') ?? 'ثانية'} ${AppLocalizations.of(context)?.translate('beforeResending') ?? 'قبل إعادة الإرسال'}',
-      );
-      return;
-    }
+    if (_isLoading || _restoringCooldown) return;
 
     setState(() {
       _isLoading = true;
     });
 
     try {
+      final remaining = await OtpCooldown.remaining(widget.email, widget.type);
+      if (!mounted) return;
+      if (remaining > 0) {
+        _startCountdown(remaining);
+        _showError(
+          '${AppLocalizations.of(context)?.translate('waitBeforeResend') ?? 'يرجى الانتظار'} ${_remainingMinutes(remaining)} ${AppLocalizations.of(context)?.translate('beforeResending') ?? 'قبل إعادة الإرسال'}',
+        );
+        return;
+      }
       Map<String, dynamic> result;
 
       if (widget.type == 'signup') {
@@ -170,17 +201,29 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
       }
 
       if (result['success'] == true) {
+        final seconds = await OtpCooldown.startAfterSend(
+          widget.email,
+          widget.type,
+          result['retryAfterSeconds'] as int?,
+        );
+        if (!mounted) return;
         _showSuccess(
           AppLocalizations.of(context)?.translate('otpResent') ??
               'تم إعادة إرسال رمز التحقق',
         );
-        _startCountdown();
+        _startCountdown(seconds);
         // Clear OTP fields
         for (var controller in _controllers) {
           controller.clear();
         }
         _focusNodes[0].requestFocus();
       } else {
+        final retryAfter = result['retryAfterSeconds'];
+        if (retryAfter is int && retryAfter > 0) {
+          await OtpCooldown.save(widget.email, widget.type, retryAfter);
+          if (!mounted) return;
+          _startCountdown(retryAfter);
+        }
         _showError(
           result['error'] ??
               AppLocalizations.of(context)?.translate('otpResendFailed') ??
@@ -440,12 +483,13 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                       ),
                     ),
                     TextButton(
-                      onPressed: _countdown > 0 || _isLoading
+                      onPressed:
+                          _countdown > 0 || _isLoading || _restoringCooldown
                           ? null
                           : _resendOTP,
                       child: Text(
                         _countdown > 0
-                            ? '${AppLocalizations.of(context)?.translate('resendAfter') ?? 'إعادة الإرسال بعد'} $_countdown ${AppLocalizations.of(context)?.translate('seconds') ?? 'ثانية'}'
+                            ? '${AppLocalizations.of(context)?.translate('resendAfter') ?? 'إعادة الإرسال بعد'} ${_remainingMinutes(_countdown)}'
                             : (AppLocalizations.of(
                                     context,
                                   )?.translate('resend') ??

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:async';
 import '../services/auth_service.dart';
+import '../services/otp_cooldown.dart';
 import '../constants/colors.dart';
 import '../l10n/app_localizations.dart';
 import 'otp_verification_screen.dart';
@@ -17,26 +17,26 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   bool _isLoading = false;
-  int _countdown = 0;
-  Timer? _timer;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _timer?.cancel();
     super.dispose();
   }
 
   Future<void> _sendResetEmail() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
-    if (_countdown > 0) {
+    final email = _emailController.text.trim();
+    final remaining = await OtpCooldown.remaining(email, 'reset');
+    if (!mounted) return;
+    if (remaining > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${AppLocalizations.of(context)?.translate('waitBeforeResend') ?? 'يرجى الانتظار'} $_countdown ${AppLocalizations.of(context)?.translate('beforeResending') ?? 'قبل إعادة الإرسال'}',
+            'يمكن طلب رمز جديد بعد ${(remaining / 60).ceil()} دقائق',
           ),
-          backgroundColor: AppColors.primary,
         ),
       );
       return;
@@ -52,6 +52,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       );
 
       if (result['success'] == true && mounted) {
+        await OtpCooldown.startAfterSend(
+          email,
+          'reset',
+          result['retryAfterSeconds'] as int?,
+        );
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -62,6 +68,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
         );
       } else if (mounted) {
+        final retryAfter = result['retryAfterSeconds'];
+        if (retryAfter is int && retryAfter > 0) {
+          await OtpCooldown.save(email, 'reset', retryAfter);
+        }
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

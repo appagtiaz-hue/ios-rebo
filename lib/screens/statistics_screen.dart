@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:http/http.dart' as http;
+import '../services/content_cache.dart';
 
 import 'dart:convert';
 import '../constants/colors.dart';
@@ -11,7 +11,10 @@ import '../services/auth_service.dart';
 import '../l10n/app_localizations.dart';
 
 class StatisticsScreen extends StatefulWidget {
-  const StatisticsScreen({Key? key}) : super(key: key);
+  const StatisticsScreen({super.key, this.onBack, this.user, this.statistics});
+  final VoidCallback? onBack;
+  final User? user;
+  final Map<String, dynamic>? statistics;
 
   @override
   State<StatisticsScreen> createState() => _StatisticsScreenState();
@@ -28,13 +31,40 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadStatistics();
+    if (widget.onBack != null) {
+      _useHomeData();
+    } else {
+      ContentCache.changes.addListener(_loadStatistics);
+      _loadStatistics();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant StatisticsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.onBack != null) _useHomeData();
+  }
+
+  void _useHomeData() {
+    _currentUser = widget.user;
+    final data = widget.statistics;
+    _completedTests = (data?['completedTests'] as num?)?.toInt() ?? 0;
+    _totalPoints = (data?['totalPoints'] as num?)?.toInt() ?? 0;
+    _level = (data?['level'] as num?)?.toInt() ?? 1;
+    _progress = (data?['progress'] as num?)?.toInt() ?? 0;
+    _isLoading = data == null && widget.user != null;
+  }
+
+  @override
+  void dispose() {
+    if (widget.onBack == null) ContentCache.changes.removeListener(_loadStatistics);
+    super.dispose();
   }
 
   Future<void> _loadStatistics() async {
     try {
       final user = await DatabaseService.getCurrentUser();
-      if (user == null) return;
+      if (user == null || !mounted) return;
 
       setState(() {
         _currentUser = user;
@@ -44,11 +74,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       // final baseUrl = prefs.getString('base_url') ?? 'http://10.0.2.2:3000';
       final baseUrl = NetworkService.baseUrl;
 
-      final response = await http.get(
+      final response = await ContentCache.get(
         Uri.parse('$baseUrl/mobile/api/users/${user.id}/statistics'),
         headers: await AuthService.authHeaders(),
+        cacheFirst: true,
+        userData: true,
       );
 
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true && mounted) {
@@ -106,14 +139,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                           color: AppColors.white,
                           size: 22.r,
                         ),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: widget.onBack ?? () => Navigator.pop(context),
                         padding: EdgeInsets.all(8.w),
                         constraints: BoxConstraints(),
                       ),
                     ),
                     Expanded(
                       child: Text(
-                        AppLocalizations.of(context)?.translate('performanceStatistics') ?? 'إحصائيات الأداء',
+                        AppLocalizations.of(
+                              context,
+                            )?.translate('performanceStatistics') ??
+                            'إحصائيات الأداء',
                         style: TextStyle(
                           color: AppColors.white,
                           fontSize: 22.sp,
@@ -161,7 +197,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                               ),
                               SizedBox(height: 8.h),
                               Text(
-                                AppLocalizations.of(context)?.translate('performanceSummary') ?? 'إليك ملخص أدائك',
+                                AppLocalizations.of(
+                                      context,
+                                    )?.translate('performanceSummary') ??
+                                    'إليك ملخص أدائك',
                                 style: TextStyle(
                                   fontSize: 14.sp,
                                   color: Theme.of(
@@ -177,7 +216,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                   Expanded(
                                     child: _buildStatCard(
                                       icon: Icons.quiz,
-                                      title: AppLocalizations.of(context)?.translate('completedTests') ?? 'الاختبارات المكتملة',
+                                      title:
+                                          AppLocalizations.of(
+                                            context,
+                                          )?.translate('completedTests') ??
+                                          'الاختبارات المكتملة',
                                       value: '$_completedTests',
                                       gradient: [
                                         AppColors.primary,
@@ -189,7 +232,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                   Expanded(
                                     child: _buildStatCard(
                                       icon: Icons.emoji_events,
-                                      title: AppLocalizations.of(context)?.translate('totalPoints') ?? 'إجمالي النقاط',
+                                      title:
+                                          AppLocalizations.of(
+                                            context,
+                                          )?.translate('totalPoints') ??
+                                          'إجمالي النقاط',
                                       value: '$_totalPoints',
                                       gradient: [
                                         AppColors.secondary,
@@ -247,7 +294,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                AppLocalizations.of(context)?.translate('currentLevel') ?? 'المستوى الحالي',
+                                                AppLocalizations.of(
+                                                      context,
+                                                    )?.translate(
+                                                      'currentLevel',
+                                                    ) ??
+                                                    'المستوى الحالي',
                                                 style: TextStyle(
                                                   fontSize: 14.sp,
                                                   color: Theme.of(
@@ -302,7 +354,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          AppLocalizations.of(context)?.translate('progressToNextLevel') ?? 'التقدم للمستوى التالي',
+                                          AppLocalizations.of(
+                                                context,
+                                              )?.translate(
+                                                'progressToNextLevel',
+                                              ) ??
+                                              'التقدم للمستوى التالي',
                                           style: TextStyle(
                                             fontSize: 13.sp,
                                             color: Theme.of(
@@ -355,7 +412,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                     SizedBox(width: 12.w),
                                     Expanded(
                                       child: Text(
-                                        AppLocalizations.of(context)?.translate('pointsToNextLevelMessage') ?? 'كل 200 نقطة = مستوى جديد\nأكمل المزيد من الاختبارات لزيادة نقاطك!',
+                                        AppLocalizations.of(context)?.translate(
+                                              'pointsToNextLevelMessage',
+                                            ) ??
+                                            'كل 200 نقطة = مستوى جديد\nأكمل المزيد من الاختبارات لزيادة نقاطك!',
                                         style: TextStyle(
                                           fontSize: 13.sp,
                                           color: Theme.of(

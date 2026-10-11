@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'network_service.dart';
+import 'content_cache.dart';
 
 /// Authentication Service for MongoDB API with OTP verification & Google Sign-In
 class AuthService {
@@ -33,6 +34,11 @@ class AuthService {
   /// Delete stored token (Logout)
   static Future<void> deleteToken() async {
     await _storage.delete(key: 'jwt_token');
+    try {
+      await ContentCache.clearPrivate(Uri.parse(NetworkService.baseUrl));
+    } catch (_) {
+      // Cache cleanup must not keep an authenticated session alive.
+    }
   }
 
   static Future<Map<String, String>> authHeaders() async {
@@ -196,11 +202,17 @@ class AuthService {
       print('Response status: ${response.statusCode}');
 
       if (response.statusCode == 200 && data['success'] == true) {
-        return {'success': true, 'message': data['message']};
+        return {
+          'success': true,
+          'message': data['message'],
+          'retryAfterSeconds': data['retryAfterSeconds'],
+        };
       } else {
         return {
           'success': false,
           'error': data['error'] ?? 'حدث خطأ في التسجيل',
+          'alreadyRegistered': data['alreadyRegistered'] == true,
+          'retryAfterSeconds': data['retryAfterSeconds'],
         };
       }
     } catch (e) {
@@ -265,11 +277,16 @@ class AuthService {
       print('Response status: ${response.statusCode}');
 
       if (response.statusCode == 200 && data['success'] == true) {
-        return {'success': true, 'message': data['message']};
+        return {
+          'success': true,
+          'message': data['message'],
+          'retryAfterSeconds': data['retryAfterSeconds'],
+        };
       } else {
         return {
           'success': false,
           'error': data['error'] ?? 'فشل في إعادة إرسال الرمز',
+          'retryAfterSeconds': data['retryAfterSeconds'],
         };
       }
     } catch (e) {
@@ -346,11 +363,16 @@ class AuthService {
       print('Response status: ${response.statusCode}');
 
       if (response.statusCode == 200 && data['success'] == true) {
-        return {'success': true, 'message': data['message']};
+        return {
+          'success': true,
+          'message': data['message'],
+          'retryAfterSeconds': data['retryAfterSeconds'],
+        };
       } else {
         return {
           'success': false,
           'error': data['error'] ?? 'فشل في إرسال رمز التحقق',
+          'retryAfterSeconds': data['retryAfterSeconds'],
         };
       }
     } catch (e) {

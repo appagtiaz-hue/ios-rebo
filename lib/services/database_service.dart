@@ -9,6 +9,7 @@ import 'network_service.dart';
 import 'sync_queue_service.dart';
 import 'test_config.dart';
 import 'auth_service.dart';
+import 'content_cache.dart';
 import '../models/question.dart';
 import '../models/payment_plan.dart';
 
@@ -274,6 +275,7 @@ class DatabaseService {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_currentUserKey);
+    await AuthService.deleteToken();
   }
 
   // Questions Management
@@ -388,16 +390,40 @@ class DatabaseService {
     bool useAllQuestionsIfZero = true,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = ' _planQuestionsKeyPrefix {userId}_ planId';
+    final key = 'fixed_plan_question_ids_${userId}_$planId';
+    final headers = await AuthService.authHeaders();
+    var response = await ContentCache.get(
+      Uri.parse(
+        '${TestConfig.serverUrl}/api/questions/bank?planId=${Uri.encodeComponent(planId)}',
+      ),
+      headers: headers,
+    );
+    if (response.statusCode == 404) {
+      final limit = questionCount > 0 ? questionCount : 10000;
+      response = await ContentCache.get(
+        Uri.parse(
+          '${TestConfig.serverUrl}/api/questions/page/1/$limit?planId=${Uri.encodeComponent(planId)}',
+        ),
+        headers: headers,
+      );
+    }
+    if (response.statusCode != 200) return [];
+    final body = jsonDecode(response.body);
+    if (body['success'] != true || body['data'] is! List) return [];
+    final all = (body['data'] as List)
+        .map((q) => Question.fromJson(q))
+        .toList();
     final cachedJson = prefs.getString(key);
     if (cachedJson != null) {
       final List<dynamic> savedIds = jsonDecode(cachedJson);
       final ids = savedIds.map((e) => e.toString()).toList();
-      return await getQuestionsByIds(ids);
+      final byId = {for (final question in all) question.id: question};
+      if (ids.every(byId.containsKey)) {
+        return ids.map((id) => byId[id]!).toList();
+      }
     }
 
     // تعديل هنا: إذا كان questionCount <= 0 رجع كل الأسئلة من الداتا بيز
-    final all = await getAllQuestions();
     List<Question> chosen;
     if (questionCount <= 0) {
       chosen = List<Question>.from(all);
@@ -413,6 +439,24 @@ class DatabaseService {
 
   // Get fixed trial questions (IDs 1–5)
   static Future<List<Question>> getTrialQuestions() async {
+    try {
+      final response = await ContentCache.get(
+        Uri.parse('${TestConfig.serverUrl}/api/questions/trial'),
+        cacheFirst: true,
+      );
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['success'] == true && body['data'] is List) {
+          final data = body['data'] as List;
+          if (data.isNotEmpty ||
+              response.headers['x-content-version'] != null) {
+            return data.map((q) => Question.fromJson(q)).toList();
+          }
+        }
+      }
+    } catch (_) {
+      // Keep the built-in trial available before the first successful download.
+    }
     // Hardcoded questions for the trial test with justification
     return [
       Question(
@@ -508,9 +552,10 @@ class DatabaseService {
   static Future<Map<String, dynamic>> fetchPlanContent(String planId) async {
     try {
       print('🌐 Fetching plan content for $planId...');
-      final response = await http
-          .get(Uri.parse('${TestConfig.serverUrl}/api/plans/$planId/questions'))
-          .timeout(Duration(seconds: TestConfig.requestTimeout));
+      final response = await ContentCache.get(
+        Uri.parse('${TestConfig.serverUrl}/api/plans/$planId/questions'),
+        headers: await AuthService.authHeaders(),
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body)['data'];
@@ -578,12 +623,12 @@ class DatabaseService {
 
       // Try to fetch from server
       print('🌐 Fetching plans from server...');
-      final response = await http
-          .get(Uri.parse('${TestConfig.serverUrl}/api/plans'))
-          .timeout(Duration(seconds: TestConfig.requestTimeout));
+      final response = await ContentCache.get(
+        Uri.parse('${TestConfig.serverUrl}/api/plans'),
+        cacheFirst: true,
+      );
 
       print('📥 Response status: ${response.statusCode}');
-      print('📥 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final serverData = jsonDecode(response.body)['data'];
@@ -876,7 +921,7 @@ class DatabaseService {
   }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final key = '_offlinePlanContentKey_${userId}_$planId';
+      final key = '${DatabaseService._offlinePlanContentKey}_${userId}_$planId';
       await prefs.remove(key);
       if (TestConfig.enableDebugLogs) {
         print(
@@ -989,14 +1034,14 @@ class DatabaseService {
   // Get user statistics from server
   static Future<Map<String, dynamic>?> getUserStatistics(String userId) async {
     try {
-      final response = await http
-          .get(
-            Uri.parse(
-              '${TestConfig.serverUrl}/mobile/api/users/$userId/statistics',
-            ),
-            headers: await AuthService.authHeaders(),
-          )
-          .timeout(Duration(seconds: TestConfig.requestTimeout));
+      final response = await ContentCache.get(
+        Uri.parse(
+          '${TestConfig.serverUrl}/mobile/api/users/$userId/statistics',
+        ),
+        headers: await AuthService.authHeaders(),
+        cacheFirst: true,
+        userData: true,
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -1041,6 +1086,13 @@ class DatabaseService {
           .timeout(Duration(seconds: TestConfig.requestTimeout));
 
       if (response.statusCode == 200) {
+        try {
+          await ContentCache.invalidateUserData(
+            Uri.parse(TestConfig.serverUrl),
+          );
+        } catch (_) {
+          // A cache failure must not retry an already saved result.
+        }
         return true;
       } else {
         if (TestConfig.enableDebugLogs) {
@@ -1069,9 +1121,12 @@ class DatabaseService {
         url += '?planId=$planId';
       }
 
-      final response = await http
-          .get(Uri.parse(url), headers: await AuthService.authHeaders())
-          .timeout(Duration(seconds: TestConfig.requestTimeout));
+      final response = await ContentCache.get(
+        Uri.parse(url),
+        headers: await AuthService.authHeaders(),
+        cacheFirst: true,
+        userData: true,
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

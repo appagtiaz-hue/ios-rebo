@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/auth_service.dart';
+import '../services/otp_cooldown.dart';
 import '../constants/colors.dart';
 import '../l10n/app_localizations.dart';
 import 'otp_verification_screen.dart';
@@ -32,6 +33,7 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Future<void> _signup() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -46,6 +48,12 @@ class _SignupScreenState extends State<SignupScreen> {
       );
 
       if (result['success'] == true && mounted) {
+        await OtpCooldown.startAfterSend(
+          _emailController.text.trim(),
+          'signup',
+          result['retryAfterSeconds'] as int?,
+        );
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -57,6 +65,17 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
           ),
         );
+      } else if ((result['alreadyRegistered'] == true ||
+              result['error'] == 'البريد الإلكتروني مسجل مسبقاً') &&
+          mounted) {
+        _fullNameController.clear();
+        _emailController.clear();
+        _passwordController.clear();
+        _confirmPasswordController.clear();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('الحساب موجود بالفعل. سجّل الدخول.')),
+        );
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       } else {
         throw Exception(
           result['error'] ??

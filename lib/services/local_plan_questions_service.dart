@@ -4,7 +4,7 @@ import '../models/question.dart';
 
 class LocalPlanQuestionsService {
   static String _key(String userId, String planId) =>
-      'plan_questions_ userId _planId';
+      'plan_questions_${userId}_$planId';
 
   // حفظ الأسئلة لخطة يوزر معين
   static Future<void> savePlanQuestions(

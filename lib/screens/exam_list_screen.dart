@@ -6,6 +6,7 @@ import '../models/payment_plan.dart';
 import 'segmented_test_screen.dart';
 import 'standard_test_screen.dart';
 import '../services/database_service.dart';
+import '../services/content_cache.dart';
 import '../utils/responsive_layout.dart';
 import 'custom_tab_screen.dart';
 
@@ -93,11 +94,13 @@ class _ExamListScreenState extends State<ExamListScreen> {
   }
 
   PaymentPlan? _currentPlan;
+  bool _planUnavailable = false;
 
   @override
   void initState() {
     super.initState();
     _currentPlan = widget.plan;
+    ContentCache.changes.addListener(_refreshPlanDetails);
     _loadExamResults();
     _refreshPlanDetails(); // Fetch fresh data on load
   }
@@ -105,19 +108,25 @@ class _ExamListScreenState extends State<ExamListScreen> {
   Future<void> _refreshPlanDetails() async {
     try {
       final plans = await DatabaseService.getPaymentPlans();
-      final freshPlan = plans.firstWhere(
-        (p) => p.id == widget.planId,
-        orElse: () => widget.plan ?? plans.first, // Fallback
-      );
+      final matching = plans
+          .where((p) => p.id == widget.planId && p.isActive)
+          .toList();
 
       if (mounted) {
         setState(() {
-          _currentPlan = freshPlan;
+          _planUnavailable = matching.isEmpty;
+          _currentPlan = matching.isEmpty ? null : matching.first;
         });
       }
     } catch (e) {
       print('Error refreshing plan details: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    ContentCache.changes.removeListener(_refreshPlanDetails);
+    super.dispose();
   }
 
   Future<void> _loadExamResults() async {
@@ -162,6 +171,17 @@ class _ExamListScreenState extends State<ExamListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_planUnavailable) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.planName)),
+        body: Center(
+          child: Text(
+            AppLocalizations.of(context)?.translate('planUnavailable') ??
+                'هذه الخطة لم تعد متاحة',
+          ),
+        ),
+      );
+    }
     List<PlanTab> tabs = [];
 
     if (_currentPlan?.tabs.isNotEmpty ?? false) {
@@ -215,12 +235,6 @@ class _ExamListScreenState extends State<ExamListScreen> {
               fontSize: 20.sp,
             ),
           ),
-          actions: [
-            IconButton(
-              icon: Icon(Icons.refresh, color: AppColors.white),
-              onPressed: _refreshPlanDetails,
-            ),
-          ],
           flexibleSpace: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(

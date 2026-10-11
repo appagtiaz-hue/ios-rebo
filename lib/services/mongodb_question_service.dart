@@ -4,6 +4,7 @@ import '../models/question.dart';
 import 'test_config.dart';
 import 'network_service.dart';
 import 'auth_service.dart';
+import 'content_cache.dart';
 
 class MongoQuestionService {
   static String get baseUrl => NetworkService.baseUrl;
@@ -18,9 +19,7 @@ class MongoQuestionService {
       try {
         final url = Uri.parse('$baseUrl/api/questions');
         final headers = await AuthService.authHeaders();
-        final response = await http
-            .get(url, headers: headers)
-            .timeout(Duration(seconds: TestConfig.requestTimeout));
+        final response = await ContentCache.get(url, headers: headers);
 
         if (response.statusCode == 200) {
           final jsonData = jsonDecode(response.body);
@@ -60,14 +59,32 @@ class MongoQuestionService {
     // If online, fetch from server
     if (isOnline) {
       try {
+        if (planId != null) {
+          final bank = await ContentCache.get(
+            Uri.parse(
+              '$baseUrl/api/questions/bank?planId=${Uri.encodeComponent(planId)}',
+            ),
+            headers: await AuthService.authHeaders(),
+          );
+          if (bank.statusCode == 200) {
+            final data = jsonDecode(bank.body);
+            if (data['success'] == true && data['data'] is List) {
+              final questions =
+                  (data['data'] as List)
+                      .map((q) => Question.fromJson(q))
+                      .toList()
+                    ..shuffle();
+              return questions.take(count).toList();
+            }
+          }
+          if (bank.statusCode != 404) return [];
+        }
         final query = planId != null
             ? '?planId=${Uri.encodeComponent(planId)}'
             : '';
         final url = Uri.parse('$baseUrl/api/questions/random/$count$query');
         final headers = await AuthService.authHeaders();
-        final response = await http
-            .get(url, headers: headers)
-            .timeout(Duration(seconds: TestConfig.requestTimeout));
+        final response = await ContentCache.get(url, headers: headers);
 
         if (response.statusCode == 200) {
           final jsonData = jsonDecode(response.body);
@@ -100,9 +117,7 @@ class MongoQuestionService {
   static Future<List<Question>> getTrialQuestions() async {
     try {
       final url = Uri.parse('$baseUrl/api/questions/trial');
-      final response = await http
-          .get(url)
-          .timeout(Duration(seconds: TestConfig.requestTimeout));
+      final response = await ContentCache.get(url, cacheFirst: true);
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
@@ -135,11 +150,7 @@ class MongoQuestionService {
       final url = Uri.parse('$baseUrl/api/questions/by-ids');
       final headers = await AuthService.authHeaders();
       final response = await http
-          .post(
-            url,
-            headers: headers,
-            body: jsonEncode({'ids': ids}),
-          )
+          .post(url, headers: headers, body: jsonEncode({'ids': ids}))
           .timeout(Duration(seconds: TestConfig.requestTimeout));
 
       if (response.statusCode == 200) {
@@ -176,9 +187,7 @@ class MongoQuestionService {
 
       final url = Uri.parse(urlString);
       final headers = await AuthService.authHeaders();
-      final response = await http
-          .get(url, headers: headers)
-          .timeout(Duration(seconds: TestConfig.requestTimeout));
+      final response = await ContentCache.get(url, headers: headers);
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
@@ -215,9 +224,7 @@ class MongoQuestionService {
       }
       final url = Uri.parse(urlString);
       final headers = await AuthService.authHeaders();
-      final response = await http
-          .get(url, headers: headers)
-          .timeout(Duration(seconds: TestConfig.requestTimeout));
+      final response = await ContentCache.get(url, headers: headers);
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
@@ -245,9 +252,7 @@ class MongoQuestionService {
   static Future<List<Map<String, dynamic>>> getAdditionalTests() async {
     try {
       final url = Uri.parse('$baseUrl/mobile/api/additional-tests');
-      final response = await http
-          .get(url)
-          .timeout(Duration(seconds: TestConfig.requestTimeout));
+      final response = await ContentCache.get(url, cacheFirst: true);
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
@@ -278,9 +283,7 @@ class MongoQuestionService {
         '$baseUrl/mobile/api/additional-tests/$testId/questions',
       );
       final headers = await AuthService.authHeaders();
-      final response = await http
-          .get(url, headers: headers)
-          .timeout(Duration(seconds: TestConfig.requestTimeout));
+      final response = await ContentCache.get(url, headers: headers);
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
@@ -309,34 +312,8 @@ class MongoQuestionService {
     String testId,
     int count,
   ) async {
-    try {
-      final url = Uri.parse(
-        '$baseUrl/mobile/api/additional-tests/$testId/questions/random/$count',
-      );
-      final headers = await AuthService.authHeaders();
-      final response = await http
-          .get(url, headers: headers)
-          .timeout(Duration(seconds: TestConfig.requestTimeout));
-
-      if (response.statusCode == 200) {
-        final jsonData = jsonDecode(response.body);
-        if (jsonData['success'] == true && jsonData['data'] != null) {
-          final List<dynamic> questionsData = jsonData['data'];
-          return questionsData.map((q) => Question.fromJson(q)).toList();
-        }
-      }
-
-      if (TestConfig.enableDebugLogs) {
-        print(
-          '❌ Error fetching random additional test questions: ${response.statusCode}',
-        );
-      }
-      return [];
-    } catch (e) {
-      if (TestConfig.enableDebugLogs) {
-        print('❌ Exception fetching random additional test questions: $e');
-      }
-      return [];
-    }
+    final questions = await getAdditionalTestQuestions(testId);
+    questions.shuffle();
+    return questions.take(count).toList();
   }
 }

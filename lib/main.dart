@@ -28,6 +28,7 @@ import 'screens/profile_screen.dart';
 import 'screens/exam_list_screen.dart';
 import 'screens/test_report_screen.dart';
 import 'screens/statistics_screen.dart';
+import 'screens/standards_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/language_selection_screen.dart';
 import 'screens/splash_screen_ar.dart';
@@ -252,6 +253,7 @@ class _MyAppState extends State<MyApp> {
                       );
                     },
                     '/statistics': (context) => const StatisticsScreen(),
+                    '/standards': (context) => const StandardsScreen(),
                     '/languageSelection': (context) =>
                         const LanguageSelectionScreen(),
                     '/splashAr': (context) => const SplashScreenAr(),

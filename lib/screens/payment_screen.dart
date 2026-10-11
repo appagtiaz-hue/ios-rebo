@@ -6,6 +6,8 @@ import '../constants/colors.dart';
 import '../models/payment_plan.dart';
 import '../models/user.dart';
 import '../services/database_service.dart';
+import '../services/content_cache.dart';
+import 'dart:async';
 import '../services/mongodb_question_service.dart';
 import '../widgets/shimmer_loading.dart';
 
@@ -23,51 +25,87 @@ class _PaymentScreenState extends State<PaymentScreen> {
   PaymentPlan? _selectedPlan;
   bool _isLoading = true;
   User? _currentUser;
+  bool _refreshingCatalog = false;
+  bool _catalogUpdatePending = false;
 
   @override
   void initState() {
     super.initState();
+    ContentCache.changes.addListener(_onCatalogChanged);
     _loadPlansAndUser();
   }
 
+  @override
+  void dispose() {
+    ContentCache.changes.removeListener(_onCatalogChanged);
+    super.dispose();
+  }
+
   Future<void> _loadPlansAndUser() async {
-    await DatabaseService.refreshCurrentUser();
-    final plans = await DatabaseService.getPaymentPlans();
-    final user = await DatabaseService.getCurrentUser();
+    if (_refreshingCatalog) return;
+    _refreshingCatalog = true;
+    try {
+      final plans = await DatabaseService.getPaymentPlans();
+      final user = await DatabaseService.getCurrentUser();
 
-    // Fetch additional tests
-    final additionalTests = await MongoQuestionService.getAdditionalTests();
+      // Fetch additional tests
+      final additionalTests = await MongoQuestionService.getAdditionalTests();
 
-    // Map additional tests to PaymentPlan
-    final testPlans = additionalTests.map((t) {
-      return PaymentPlan(
-        id: t['id'],
-        name: t['nameAr'] ?? t['name'],
-        nameEn: t['nameEn'] ?? '',
-        description: t['descriptionAr'] ?? t['description'] ?? '',
-        descriptionEn: t['descriptionEn'] ?? '',
-        questionCount:
-            (t['examQuestionCount'] != null &&
-                (t['examQuestionCount'] as num) > 0)
-            ? (t['examQuestionCount'] as num).toInt()
-            : (t['questionCount'] ?? 0),
-        price: (t['price'] as num?)?.toDouble() ?? 0.0,
-        currency: 'ر.س',
-        isActive: t['isActive'] ?? true,
-      );
-    }).toList();
+      // Map additional tests to PaymentPlan
+      final testPlans = additionalTests.map((t) {
+        return PaymentPlan(
+          id: t['id'],
+          name: t['nameAr'] ?? t['name'],
+          nameEn: t['nameEn'] ?? '',
+          description: t['descriptionAr'] ?? t['description'] ?? '',
+          descriptionEn: t['descriptionEn'] ?? '',
+          questionCount:
+              (t['examQuestionCount'] != null &&
+                  (t['examQuestionCount'] as num) > 0)
+              ? (t['examQuestionCount'] as num).toInt()
+              : (t['questionCount'] ?? 0),
+          price: (t['price'] as num?)?.toDouble() ?? 0.0,
+          currency: 'ر.س',
+          isActive: t['isActive'] ?? true,
+        );
+      }).toList();
 
+      if (!mounted) return;
+
+      // Show ALL active plans from database + additional tests
+      final activePlans = plans.where((plan) => plan.isActive).toList();
+      activePlans.addAll(testPlans);
+
+      setState(() {
+        _plans = activePlans;
+        if (_selectedPlan != null) {
+          final matches = activePlans
+              .where((p) => p.id == _selectedPlan!.id)
+              .toList();
+          _selectedPlan = matches.isEmpty ? null : matches.first;
+        }
+        _currentUser = user;
+        _isLoading = false;
+      });
+      await DatabaseService.refreshCurrentUser();
+      final freshUser = await DatabaseService.getCurrentUser();
+      if (mounted) setState(() => _currentUser = freshUser);
+    } finally {
+      _refreshingCatalog = false;
+      if (_catalogUpdatePending && mounted) {
+        _catalogUpdatePending = false;
+        unawaited(_loadPlansAndUser());
+      }
+    }
+  }
+
+  void _onCatalogChanged() {
     if (!mounted) return;
-
-    // Show ALL active plans from database + additional tests
-    final activePlans = plans.where((plan) => plan.isActive).toList();
-    activePlans.addAll(testPlans);
-
-    setState(() {
-      _plans = activePlans;
-      _currentUser = user;
-      _isLoading = false;
-    });
+    if (_refreshingCatalog) {
+      _catalogUpdatePending = true;
+    } else {
+      unawaited(_loadPlansAndUser());
+    }
   }
 
   void _proceed() async {
@@ -174,17 +212,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh, color: AppColors.primary),
-            onPressed: () {
-              setState(() {
-                _isLoading = true;
-              });
-              _loadPlansAndUser();
-            },
-          ),
-        ],
       ),
       body: _isLoading
           ? Padding(

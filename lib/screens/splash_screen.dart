@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/startup_brand_view.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -23,6 +24,7 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     final hasSelectedLanguage = prefs.getBool('has_selected_language') ?? false;
     final languageCode = prefs.getString('language_code');
 
@@ -49,10 +51,8 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Show black or empty screen for split second while deciding
-    return const Scaffold(
-      backgroundColor: Colors.white,
-      body: SizedBox.expand(),
+    return StartupBrandView(
+      languageCode: Localizations.localeOf(context).languageCode,
     );
   }
 }
