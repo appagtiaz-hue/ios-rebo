@@ -29,7 +29,7 @@ void main() {
   });
 
   test(
-    'first OTP resend waits five minutes, survives reopening and never restarts an expired deadline',
+    'first OTP resend waits one minute, survives reopening and never restarts an expired deadline',
     () async {
       SharedPreferences.setMockInitialValues({});
       expect(
@@ -38,17 +38,29 @@ void main() {
           'reset',
           startIfMissing: true,
         ),
-        300,
+        60,
       );
       expect(
         await OtpCooldown.remaining('user@example.com', 'reset'),
-        inInclusiveRange(299, 300),
+        inInclusiveRange(59, 60),
       );
       expect(await OtpCooldown.remaining('another@example.com', 'reset'), 0);
       expect(await OtpCooldown.remaining('user@example.com', 'signup'), 0);
       expect(
         await OtpCooldown.startAfterSend('user@example.com', 'reset', 0),
-        300,
+        60,
+      );
+      expect(
+        await OtpCooldown.startAfterSend('user@example.com', 'reset', 20),
+        60,
+      );
+      expect(
+        await OtpCooldown.startAfterSend('user@example.com', 'reset', 120),
+        120,
+      );
+      expect(
+        await OtpCooldown.remaining('user@example.com', 'reset'),
+        inInclusiveRange(119, 120),
       );
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(
@@ -358,7 +370,7 @@ void main() {
   );
 
   test(
-    'removing trial questions does not resurrect the built-in sample',
+    'empty versioned trial content uses the built-in sample even when cached',
     () async {
       SharedPreferences.setMockInitialValues({});
       final directory = await Directory.systemTemp.createTemp(
@@ -376,8 +388,8 @@ void main() {
         );
       });
       try {
-        expect(await DatabaseService.getTrialQuestions(), isEmpty);
-        expect(await DatabaseService.getTrialQuestions(), isEmpty);
+        expect(await DatabaseService.getTrialQuestions(), hasLength(5));
+        expect(await DatabaseService.getTrialQuestions(), hasLength(5));
         await ContentCache.checkForChanges(
           Uri.parse('https://agtiaz.online'),
           force: true,

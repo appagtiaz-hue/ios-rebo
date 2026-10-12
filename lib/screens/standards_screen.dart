@@ -4,7 +4,8 @@ import '../models/professional_standard.dart';
 import '../widgets/standards_overview.dart';
 
 class StandardsScreen extends StatefulWidget {
-  const StandardsScreen({super.key});
+  const StandardsScreen({super.key, this.initialDomain});
+  final ProfessionalDomain? initialDomain;
 
   @override
   State<StandardsScreen> createState() => _StandardsScreenState();
@@ -12,6 +13,20 @@ class StandardsScreen extends StatefulWidget {
 
 class _StandardsScreenState extends State<StandardsScreen> {
   String? _expandedId;
+  final _domainKeys = {
+    for (final domain in ProfessionalDomain.values) domain: GlobalKey(),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = _domainKeys[widget.initialDomain]?.currentContext;
+      if (target != null) Scrollable.ensureVisible(target, alignment: 0);
+    });
+  }
+
   final _rowKeys = {
     for (final standard in professionalStandards) standard.id: GlobalKey(),
   };
@@ -56,6 +71,7 @@ class _StandardsScreenState extends State<StandardsScreen> {
           children: [
             for (final domain in ProfessionalDomain.values) ...[
               Padding(
+                key: _domainKeys[domain],
                 padding: const EdgeInsets.only(top: 16, bottom: 6),
                 child: ColoredBox(
                   color: standardDomainColor(domain).withValues(alpha: 0.08),

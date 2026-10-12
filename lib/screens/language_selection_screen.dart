@@ -1,218 +1,212 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../constants/colors.dart';
 import '../services/localization_service.dart';
+import '../theme/home_palette.dart';
+import '../widgets/agtiaz_brand_logo.dart';
 
 class LanguageSelectionScreen extends StatefulWidget {
   const LanguageSelectionScreen({super.key});
-
   @override
   State<LanguageSelectionScreen> createState() =>
       _LanguageSelectionScreenState();
 }
 
 class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
-  bool _isLoading = false;
+  String? _selecting;
 
-  Future<void> _selectLanguage(String languageCode) async {
-    setState(() {
-      _isLoading = true;
-    });
-
+  Future<void> _selectLanguage(String code) async {
+    if (_selecting != null) return;
+    setState(() => _selecting = code);
     try {
-      // 1. Set Locale
-      await LocalizationService.setLocale(Locale(languageCode));
-
-      // 2. Mark as selected
+      await LocalizationService.setLocale(Locale(code));
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('has_selected_language', true);
-
-      // 3. Navigate to appropriate Splash Screen
       if (mounted) {
-        if (languageCode == 'ar') {
-          Navigator.pushReplacementNamed(context, '/splashAr');
-        } else {
-          Navigator.pushReplacementNamed(context, '/splashEn');
-        }
+        Navigator.pushReplacementNamed(
+          context,
+          code == 'ar' ? '/splashAr' : '/splashEn',
+        );
       }
-    } catch (e) {
-      print('Error selecting language: $e');
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'تعذّر حفظ اللغة. حاول مرة أخرى.\nCould not save your language. Try again.',
+            ),
+          ),
+        );
+      }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _selecting = null);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final p = HomePalette.of(context);
     return Scaffold(
-      backgroundColor: AppColors.primary,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppColors.primaryDark, AppColors.primary],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              SizedBox(height: 60.h),
-
-              // Logo
-              Container(
-                width: 100.r,
-                height: 100.r,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.white.withOpacity(0.2),
-                ),
-                padding: EdgeInsets.all(15.r),
-                child: Image.asset(
-                  'assets/images/app_icon.png',
-                  fit: BoxFit.contain,
+      backgroundColor: p.background,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: (constraints.maxHeight - 48).clamp(
+                  0,
+                  double.infinity,
                 ),
               ),
-
-              SizedBox(height: 40.h),
-
-              // Title
-              Text(
-                'Choose Your Language\nاختر لغتك',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  height: 1.5,
-                ),
-              ),
-
-              Spacer(),
-
-              // Content Card
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.all(32.w),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(40.r),
-                    topRight: Radius.circular(40.r),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_isLoading)
-                      const Padding(
-                        padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Center(child: AgtiazBrandLogo()),
+                      const SizedBox(height: 28),
+                      Text(
+                        'اختر لغتك',
+                        textAlign: TextAlign.center,
+                        textDirection: TextDirection.rtl,
+                        style: TextStyle(
+                          color: p.ink,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w700,
                         ),
-                      )
-                    else ...[
-                      // Arabic Button
-                      _buildLanguageButton(
-                        label: 'العربية',
-                        subLabel: 'Arabic',
-                        icon: Icons.language,
-                        onPressed: () => _selectLanguage('ar'),
                       ),
-
-                      SizedBox(height: 20.h),
-
-                      // English Button
-                      _buildLanguageButton(
-                        label: 'English',
-                        subLabel: 'الإنجليزية',
-                        icon: Icons.language,
-                        onPressed: () => _selectLanguage('en'),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Choose your language',
+                        textAlign: TextAlign.center,
+                        textDirection: TextDirection.ltr,
+                        style: TextStyle(color: p.secondary, fontSize: 15),
+                      ),
+                      const SizedBox(height: 32),
+                      DecoratedBox(
+                        key: const ValueKey('language-options-panel'),
+                        decoration: BoxDecoration(
+                          color: p.panel,
+                          border: Border.all(color: p.border),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            _option(
+                              context,
+                              code: 'ar',
+                              title: 'العربية',
+                              subtitle: 'Arabic',
+                              glyph: 'ع',
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: Divider(height: 1, color: p.border),
+                            ),
+                            _option(
+                              context,
+                              code: 'en',
+                              title: 'English',
+                              subtitle: 'الإنجليزية',
+                              glyph: 'A',
+                            ),
+                          ],
+                        ),
                       ),
                     ],
-                    SizedBox(height: 20.h),
-                  ],
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildLanguageButton({
-    required String label,
-    required String subLabel,
-    required IconData icon,
-    required VoidCallback onPressed,
+  Widget _option(
+    BuildContext context, {
+    required String code,
+    required String title,
+    required String subtitle,
+    required String glyph,
   }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(16.r),
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 24.w),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-            borderRadius: BorderRadius.circular(16.r),
-            color: AppColors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
+    final p = HomePalette.of(context);
+    final accent = code == 'ar' ? p.green : p.gold;
+    return Directionality(
+      textDirection: code == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: ValueKey('language-option-$code'),
+          borderRadius: BorderRadius.circular(8),
+          onTap: _selecting != null ? null : () => _selectLanguage(code),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 92),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              child: Row(
                 children: [
-                  Container(
-                    padding: EdgeInsets.all(10.w),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
-                      shape: BoxShape.circle,
+                  SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Center(
+                      child: Text(
+                        glyph,
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                    child: Icon(icon, color: AppColors.primary, size: 24.r),
                   ),
-                  SizedBox(width: 16.w),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: p.ink,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      Text(
-                        subLabel,
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: AppColors.textSecondary,
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: TextStyle(color: p.secondary, fontSize: 13),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 12),
+                  if (_selecting == code)
+                    SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: accent,
+                      ),
+                    )
+                  else
+                    Icon(
+                      code == 'ar'
+                          ? Icons.chevron_left_rounded
+                          : Icons.chevron_right_rounded,
+                      color: accent,
+                      size: 22,
+                    ),
                 ],
               ),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: AppColors.primary,
-                size: 18.r,
-              ),
-            ],
+            ),
           ),
         ),
       ),

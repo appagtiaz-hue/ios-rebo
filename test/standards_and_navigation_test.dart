@@ -37,6 +37,35 @@ Widget host(
 }
 
 void main() {
+  for (final domain in ProfessionalDomain.values) {
+    testWidgets(
+      'domain link scrolls to $domain while retaining all standards',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 600);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(host(StandardsScreen(initialDomain: domain)));
+        await tester.pumpAndSettle();
+        expect(
+          find
+              .text(
+                AppLocalizations(const Locale('ar')).translate(domain.titleKey),
+              )
+              .hitTestable(),
+          findsOneWidget,
+        );
+        for (final standard in professionalStandards) {
+          expect(
+            find.byKey(ValueKey('standard-${standard.id}')),
+            findsOneWidget,
+          );
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
   test(
     'standards match three domains and ten unique entries in both languages',
     () {
@@ -147,16 +176,22 @@ void main() {
         );
         await tester.pumpAndSettle();
         final navigation = find.byType(AppBottomNavigation);
-        expect(tester.getSize(navigation).height, 82);
+        expect(tester.getSize(navigation).height, 76);
         final surface = tester.widget<DecoratedBox>(
           find.byKey(const ValueKey('bottom-navigation-surface')),
         );
-        expect((surface.decoration as BoxDecoration).border, isNull);
+        expect((surface.decoration as BoxDecoration).border, isNotNull);
         final homeIcon = find.byKey(const ValueKey('destination-icon-0'));
         final examsIcon = find.byKey(const ValueKey('destination-icon-1'));
+        expect(tester.getTopLeft(homeIcon).dy, tester.getTopLeft(examsIcon).dy);
+        expect(tester.getSize(homeIcon), tester.getSize(examsIcon));
+        final homePosition = tester.getCenter(homeIcon).dx;
+        final examsPosition = tester.getCenter(examsIcon).dx;
         expect(
-          tester.getTopLeft(homeIcon).dy,
-          lessThan(tester.getTopLeft(examsIcon).dy),
+          language == 'ar'
+              ? homePosition > examsPosition
+              : homePosition < examsPosition,
+          isTrue,
         );
         for (var i = 0; i < 4; i++) {
           final iconBackground = tester.widget<AnimatedContainer>(

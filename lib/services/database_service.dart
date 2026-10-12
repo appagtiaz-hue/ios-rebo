@@ -448,14 +448,20 @@ class DatabaseService {
         final body = jsonDecode(response.body);
         if (body['success'] == true && body['data'] is List) {
           final data = body['data'] as List;
-          if (data.isNotEmpty ||
-              response.headers['x-content-version'] != null) {
-            return data.map((q) => Question.fromJson(q)).toList();
+          final questions = data.map((q) => Question.fromJson(q)).where((q) {
+            return q.questionText.trim().isNotEmpty &&
+                q.options.length >= 2 &&
+                q.options.every((option) => option.trim().isNotEmpty) &&
+                q.correctAnswerIndex >= 0 &&
+                q.correctAnswerIndex < q.options.length;
+          }).toList();
+          if (questions.isNotEmpty) {
+            return questions;
           }
         }
       }
     } catch (_) {
-      // Keep the built-in trial available before the first successful download.
+      // The public trial remains available when remote content is unusable.
     }
     // Hardcoded questions for the trial test with justification
     return [

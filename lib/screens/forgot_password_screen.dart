@@ -32,10 +32,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final remaining = await OtpCooldown.remaining(email, 'reset');
     if (!mounted) return;
     if (remaining > 0) {
+      final minutes = (remaining / 60).ceil();
+      final text = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'يمكن طلب رمز جديد بعد ${(remaining / 60).ceil()} دقائق',
+            '${text.translate('resendAfter')} $minutes ${text.translate(minutes == 1 ? 'minute' : 'minutes')}',
           ),
         ),
       );

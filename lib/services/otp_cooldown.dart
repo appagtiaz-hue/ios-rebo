@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OtpCooldown {
-  static const resendIntervalSeconds = 300;
+  static const resendIntervalSeconds = 60;
 
   static String _key(String email, String type) =>
       'otp_cooldown_${type}_${email.trim().toLowerCase()}';

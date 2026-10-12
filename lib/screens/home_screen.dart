@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../constants/colors.dart';
 import '../models/user.dart';
@@ -14,11 +13,15 @@ import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/home_learning_content.dart';
-import '../widgets/premium_tab_label.dart';
+import '../widgets/home_greeting_header.dart';
+import '../theme/home_palette.dart';
+import '../models/home_practice_state.dart';
+import '../models/professional_standard.dart';
 import '../widgets/app_bottom_navigation.dart';
 import 'profile_screen.dart';
 import 'statistics_screen.dart';
 import 'test_library_screen.dart';
+import 'subscribed_plans_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen>
   Timer? _contentVersionTimer;
   int _selectedDestination = 0;
   bool _subscriptionsLoading = true;
+  bool _choosingPlan = false;
   double _tabSwipeDistance = 0;
 
   @override
@@ -237,7 +241,9 @@ class _HomeScreenState extends State<HomeScreen>
         if (!didPop) _selectDestination(0);
       },
       child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: _selectedDestination == 0
+            ? HomePalette.of(context).background
+            : Theme.of(context).scaffoldBackgroundColor,
         body: IndexedStack(
           index: _selectedDestination,
           children: [
@@ -282,236 +288,65 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   SliverAppBar _buildHomeHeader() {
-    final compact = MediaQuery.orientationOf(context) == Orientation.landscape;
+    final colors = HomePalette.of(context);
+    final text = AppLocalizations.of(context)!;
     return SliverAppBar(
       automaticallyImplyLeading: false,
       toolbarHeight: 0,
-      expandedHeight: compact ? null : 260.h,
-      floating: false,
       pinned: true,
+      backgroundColor: colors.background,
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      flexibleSpace: compact
-          ? null
-          : FlexibleSpaceBar(
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFF063311), // Very Dark Green
-                      Color(0xFF0D4D2B), // Dark Green
-                      Color(0xFF1B5E20), // Standard Dark Green
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 12.h),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // User details.
-                        Row(
-                          children: [
-                            // User Avatar
-                            Container(
-                              width: 52.r,
-                              height: 52.r,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Color(0xFFF6C41C),
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2.5.w,
-                                ),
-                                image: _profileImage != null
-                                    ? DecorationImage(
-                                        image: FileImage(_profileImage!),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : null,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.15),
-                                    blurRadius: 8.r,
-                                    offset: Offset(0, 3.h),
-                                  ),
-                                ],
-                              ),
-                              child: _profileImage == null
-                                  ? Center(
-                                      child: Text(
-                                        (_currentUser?.fullName.isNotEmpty ??
-                                                false)
-                                            ? _currentUser!.fullName[0]
-                                                  .toUpperCase()
-                                            : 'م',
-                                        style: TextStyle(
-                                          fontSize: 24.sp,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF1B5E20),
-                                        ),
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                            SizedBox(width: 12.w),
-                            // User Name and Welcome
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    (AppLocalizations.of(
-                                              context,
-                                            )?.translate('welcomeBack') ??
-                                            'مرحباً بعودتك!') +
-                                        ' 👋',
-                                    style: TextStyle(
-                                      fontSize: 13.sp,
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  SizedBox(height: 4.h),
-                                  Text(
-                                    _localName ??
-                                        _currentUser?.fullName ??
-                                        AppLocalizations.of(
-                                          context,
-                                        )?.translate('user') ??
-                                        'المستخدم',
-                                    style: TextStyle(
-                                      fontSize: 18.sp,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 20.h),
-                        // Stats Row
-                        Container(
-                          padding: EdgeInsets.symmetric(
-                            vertical: 12.h,
-                            horizontal: 16.w,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(16.r),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildStatItem(
-                                icon: Icons.quiz_rounded,
-                                value: '${_userStats?['completedTests'] ?? 0}',
-                                label:
-                                    AppLocalizations.of(
-                                      context,
-                                    )?.translate('completed') ??
-                                    'مكتمل',
-                              ),
-                              _buildDivider(),
-                              _buildStatItem(
-                                icon: Icons.emoji_events_rounded,
-                                value: '${_userStats?['totalPoints'] ?? 0}',
-                                label:
-                                    AppLocalizations.of(
-                                      context,
-                                    )?.translate('points') ??
-                                    'نقطة',
-                              ),
-                              _buildDivider(),
-                              _buildStatItem(
-                                icon: Icons.stars_rounded,
-                                value: '${_userStats?['level'] ?? 1}',
-                                label:
-                                    AppLocalizations.of(
-                                      context,
-                                    )?.translate('level') ??
-                                    'مستوى',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+      scrolledUnderElevation: 0,
       bottom: PreferredSize(
-        preferredSize: Size.fromHeight(48 + 16.h + 8.w),
-        child: Container(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-          child: Container(
-            padding: EdgeInsets.all(4.w),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(16.r),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: _tabController.index == 0
-                  ? Colors.white
-                  : const Color(0xFF1C1C1C),
-              unselectedLabelColor: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant,
-              indicator: BoxDecoration(
-                color: _tabController.index == 0
-                    ? AppColors.primary
-                    : const Color(0xFFE8B83F),
-                borderRadius: BorderRadius.circular(12.r),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              indicatorSize: TabBarIndicatorSize.tab,
-              dividerColor: Colors.transparent,
-              labelStyle: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: _tabController.index == 0
-                    ? Colors.white
-                    : const Color(0xFF1C1C1C),
-              ),
-              unselectedLabelStyle: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-              tabs: [
-                Tab(
-                  text:
-                      AppLocalizations.of(context)?.translate('free') ??
-                      'مجاني',
+        preferredSize: const Size.fromHeight(74),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 632),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  border: Border.all(color: colors.border),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                Tab(
-                  child: PremiumTabLabel(
-                    selected: _tabController.index == 1,
-                    label:
-                        AppLocalizations.of(context)?.translate('premium') ??
-                        'مميز',
+                child: TabBar(
+                  controller: _tabController,
+                  labelColor: _tabController.index == 0
+                      ? colors.ink
+                      : const Color(0xFF102019),
+                  unselectedLabelColor: colors.secondary,
+                  indicator: BoxDecoration(
+                    color: _tabController.index == 0
+                        ? colors.greenSoft
+                        : const Color(0xFFF1D185),
+                    borderRadius: BorderRadius.circular(8),
                   ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  labelStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0,
+                  ),
+                  tabs: [
+                    Tab(
+                      key: const ValueKey('home-free-tab'),
+                      text: text.translate('free'),
+                    ),
+                    Tab(
+                      key: const ValueKey('home-premium-tab'),
+                      text: text.translate('premium'),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -563,31 +398,59 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildHomeScroll() {
     // A shared viewport keeps the header still when switching tabs.
-    return RefreshIndicator(
-      onRefresh: _refreshFromPull,
-      color: AppColors.primary,
-      child: CustomScrollView(
-        key: const PageStorageKey('home-scroll'),
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          _buildHomeHeader(),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(16.w, 16.w, 16.w, 8),
-            sliver: SliverToBoxAdapter(
-              child: GestureDetector(
-                key: const ValueKey('home-tab-content'),
-                behavior: HitTestBehavior.opaque,
-                onHorizontalDragStart: (_) => _tabSwipeDistance = 0,
-                onHorizontalDragUpdate: (details) =>
-                    _tabSwipeDistance += details.delta.dx,
-                onHorizontalDragEnd: _switchHomeTab,
-                child: _tabController.index == 0
-                    ? _buildFreeTestsTab()
-                    : _buildPremiumPlansTab(),
+    return SafeArea(
+      bottom: false,
+      child: RefreshIndicator(
+        onRefresh: _refreshFromPull,
+        color: AppColors.primary,
+        child: CustomScrollView(
+          key: const PageStorageKey('home-scroll'),
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 18),
+              sliver: SliverToBoxAdapter(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: HomeGreetingHeader(
+                      name: (_localName?.trim().isNotEmpty ?? false)
+                          ? _localName
+                          : _currentUser?.fullName,
+                      avatar: _profileImage == null
+                          ? null
+                          : FileImage(_profileImage!),
+                      completedTests: (_userStats?['completedTests'] as num?)
+                          ?.toInt(),
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+            _buildHomeHeader(),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              sliver: SliverToBoxAdapter(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 600),
+                    child: GestureDetector(
+                      key: const ValueKey('home-tab-content'),
+                      behavior: HitTestBehavior.opaque,
+                      onHorizontalDragStart: (_) => _tabSwipeDistance = 0,
+                      onHorizontalDragUpdate: (details) =>
+                          _tabSwipeDistance += details.delta.dx,
+                      onHorizontalDragEnd: _switchHomeTab,
+                      child: _tabController.index == 0
+                          ? _buildFreeTestsTab()
+                          : _buildPremiumPlansTab(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -605,387 +468,140 @@ class _HomeScreenState extends State<HomeScreen>
     if (target != _tabController.index) _tabController.animateTo(target);
   }
 
-  Widget _buildFreeTestsTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // New Plan Banner
-        FutureBuilder<List<PaymentPlan>>(
-          future: _plansFuture,
-          builder: (context, snapshot) {
-            if (snapshot.hasData) {
-              final newPlans = snapshot.data!.where((plan) {
-                if (plan.createdAt == null) return false;
-                final diff = DateTime.now().difference(plan.createdAt!);
-                return diff.inDays <= 7;
-              }).toList();
+  HomePracticeState get _practiceState => HomePracticeState.fromSubscriptions(
+    loading: _subscriptionsLoading,
+    subscriptions: _activeSubscriptions,
+  );
 
-              if (newPlans.isNotEmpty) {
-                return Column(
-                  children: [
-                    _buildNewPlanBanner(newPlans.first),
-                    SizedBox(height: 16.h),
-                  ],
-                );
-              }
-            }
-            return SizedBox.shrink();
-          },
+  Future<void> _continueTraining() async {
+    if (_choosingPlan) return;
+    final state = _practiceState;
+    if (state.mode == HomePracticeMode.loading) return;
+    _choosingPlan = true;
+    try {
+      final selected = state.subscription;
+      if (selected != null) {
+        await _openSubscription(selected);
+        return;
+      }
+      if (state.mode == HomePracticeMode.browsePlans) {
+        await _browsePlans();
+        return;
+      }
+      final choice = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          settings: const RouteSettings(name: '/subscribedPlans'),
+          builder: (_) =>
+              SubscribedPlansScreen(subscriptions: state.subscriptions),
         ),
-        HomeLearningContent(
-          premium: false,
-          onShowProgress: () => _selectDestination(2),
-          onStartTrial: _startTrial,
-          onExploreStandards: () => Navigator.pushNamed(context, '/standards'),
-        ),
-      ],
+      );
+      if (mounted && choice != null) await _openSubscription(choice);
+    } finally {
+      _choosingPlan = false;
+    }
+  }
+
+  void _openDomain(ProfessionalDomain domain) {
+    Navigator.pushNamed(context, '/standards', arguments: domain);
+  }
+
+  Widget _learningContent({required bool premium}) {
+    final state = _practiceState;
+    final subscription = state.subscription;
+    final plan = subscription?['planObject'];
+    return HomeLearningContent(
+      premium: premium,
+      practiceMode: state.mode,
+      planName: plan is PaymentPlan
+          ? plan.getName(context)
+          : subscription?['planName']?.toString(),
+      onShowProgress: () => _selectDestination(2),
+      onStartTrial: _startTrial,
+      onExploreStandards: () => Navigator.pushNamed(context, '/standards'),
+      onOpenDomain: _openDomain,
+      onBrowsePlans: _browsePlans,
+      onSelectPremium: () => _tabController.animateTo(1),
+      onContinuePractice: _continueTraining,
     );
   }
 
-  Widget _buildPremiumPlansTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        HomePlanBrowseAction(onBrowsePlans: _browsePlans),
-        const SizedBox(height: 16),
-        // Active Subscriptions Section
-        if (_activeSubscriptions.isNotEmpty) ...[
-          _buildSectionTitle(
-            AppLocalizations.of(context)?.translate('myActiveSubscriptions') ??
-                'اشتراكاتي النشطة',
-          ),
-          SizedBox(height: 12.h),
-          Wrap(
-            spacing: 12.w,
-            runSpacing: 12.w,
-            children: _activeSubscriptions.map((sub) {
-              final planName = sub['planName'] ?? 'غير محدد';
-              final questionCount = sub['questionCount'] ?? 0;
-              final isMain = sub['isMain'] == true;
-              final cardWidth = (MediaQuery.of(context).size.width - 44.w) / 2;
-
-              final plan = sub['planObject'] as PaymentPlan?;
-
-              return _buildSmallSubscriptionCard(
-                width: cardWidth,
-                // Use localized name from plan object
-                title: plan != null ? plan.getName(context) : planName,
-                subtitle: isMain
-                    ? (AppLocalizations.of(context)?.translate('main') ??
-                          'أساسي')
-                    : (AppLocalizations.of(context)?.translate('additional') ??
-                          'إضافي'),
-                description:
-                    '$questionCount ${AppLocalizations.of(context)?.translate('question') ?? 'سؤال'}',
-                icon: Icons.check_circle_outline,
-                gradient: plan != null
-                    ? plan.getGradient()
-                    : [Color(0xFFC0C0C0), Color(0xFF9E9E9E)],
-                badge:
-                    AppLocalizations.of(context)?.translate('active') ?? 'مفعل',
-                onTap: () => _openSubscription(sub),
-              );
-            }).toList(),
-          ),
-          SizedBox(height: 20.h),
-          _buildSectionTitle(
-            AppLocalizations.of(context)?.translate('otherPlans') ??
-                'باقات أخرى',
-          ),
-          SizedBox(height: 12.h),
-        ],
-
-        HomeLearningContent(
-          premium: true,
-          onShowProgress: () => _selectDestination(2),
-          onStartTrial: _startTrial,
-          onExploreStandards: () => Navigator.pushNamed(context, '/standards'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 4.w),
-      child: Text(
-        title,
-        style: TextStyle(
-          fontSize: 16.sp,
-          fontWeight: FontWeight.bold,
-          color: AppColors.primary,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSmallSubscriptionCard({
-    required double width,
-    required String title,
-    required String subtitle,
-    required String description,
-    required IconData icon,
-    required List<Color> gradient,
-    required String badge,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      width: width,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20.r),
-        boxShadow: [
-          BoxShadow(
-            color: gradient[0].withOpacity(0.2),
-            blurRadius: 10.r,
-            offset: Offset(0, 4.h),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20.r),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20.r),
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: gradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+  Widget _buildFreeTestsTab() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _learningContent(premium: false),
+      FutureBuilder<List<PaymentPlan>>(
+        future: _plansFuture,
+        builder: (context, snapshot) {
+          final newPlans =
+              snapshot.data
+                  ?.where(
+                    (plan) =>
+                        plan.isActive &&
+                        plan.createdAt != null &&
+                        DateTime.now().difference(plan.createdAt!).inDays <= 7,
+                  )
+                  .toList() ??
+              [];
+          if (newPlans.isEmpty) return const SizedBox.shrink();
+          final plan = newPlans.first;
+          final text = AppLocalizations.of(context)!;
+          final colors = HomePalette.of(context);
+          return Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: TextButton(
+              key: const ValueKey('home-new-plan'),
+              onPressed: _browsePlans,
+              style: TextButton.styleFrom(
+                foregroundColor: colors.gold,
+                minimumSize: const Size(48, 64),
+                alignment: AlignmentDirectional.centerStart,
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              borderRadius: BorderRadius.circular(20.r),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(12.w),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Row(
                 children: [
-                  Container(
-                    padding: EdgeInsets.all(8.w),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.25),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, size: 24.r, color: Colors.white),
+                  Icon(
+                    Icons.new_releases_outlined,
+                    color: colors.gold,
+                    size: 24,
                   ),
-                  SizedBox(height: 10.h),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 4.h),
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 8.w,
-                      vertical: 4.h,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                    child: Text(
-                      badge,
-                      style: TextStyle(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 8.h),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        AppLocalizations.of(context)?.translate('enter') ??
-                            'دخول',
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white.withOpacity(0.9),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          text
+                              .translate('homeNewPlan')
+                              .replaceAll('{plan}', plan.getName(context)),
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                            color: colors.ink,
+                            letterSpacing: 0,
+                          ),
                         ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 14.r,
-                        color: Colors.white.withOpacity(0.9),
-                      ),
-                    ],
+                        Text(
+                          text.translate('homeDiscoverPlan'),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            height: 1.5,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right, size: 20),
                 ],
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
-    );
-  }
+    ],
+  );
 
-  Widget _buildStatItem({
-    required IconData icon,
-    required String value,
-    required String label,
-  }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Color(0xFFF6C41C), size: 22.r),
-            SizedBox(width: 6.w),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 22.sp,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 6.h),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14.sp,
-            color: Colors.white.withOpacity(0.9),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDivider() {
-    return Container(
-      width: 1.5,
-      height: 45.h,
-      color: Colors.white.withOpacity(0.3),
-    );
-  }
-
-  Widget _buildNewPlanBanner(PaymentPlan plan) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: plan.getGradient(),
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20.r),
-        boxShadow: [
-          BoxShadow(
-            color: plan.getPrimaryColor().withOpacity(0.3),
-            blurRadius: 15,
-            offset: Offset(0, 8.h),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20.r),
-        child: InkWell(
-          onTap: () => Navigator.pushNamed(context, '/payment'),
-          borderRadius: BorderRadius.circular(20.r),
-          child: Padding(
-            padding: EdgeInsets.all(16.w),
-            child: Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.all(12.w),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(16.r),
-                  ),
-                  child: Icon(
-                    Icons.new_releases_rounded,
-                    color: Colors.white,
-                    size: 32.r,
-                  ),
-                ),
-                SizedBox(width: 16.w),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              AppLocalizations.of(
-                                    context,
-                                  )?.translate('newAndFeatured') ??
-                                  'جديد ومميز',
-                              style: TextStyle(
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          SizedBox(width: 8.w),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8.w,
-                              vertical: 2.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(6.r),
-                            ),
-                            child: Text(
-                              'NEW',
-                              style: TextStyle(
-                                fontSize: 10.sp,
-                                fontWeight: FontWeight.bold,
-                                color: plan.getPrimaryColor(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 4.h),
-                      Text(
-                        plan.getName(context),
-                        style: TextStyle(
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        AppLocalizations.of(
-                              context,
-                            )?.translate('newPlanAvailable') ??
-                            'خطة جديدة متاحة الآن!',
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          color: Colors.white.withOpacity(0.9),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_rounded,
-                  color: Colors.white,
-                  size: 24.r,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildPremiumPlansTab() => _learningContent(premium: true);
 }

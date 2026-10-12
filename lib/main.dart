@@ -36,6 +36,7 @@ import 'screens/splash_screen_en.dart';
 import 'screens/additional_test_screen.dart'; // Added AdditionalTestScreen
 import 'dart:io';
 import 'models/payment_plan.dart';
+import 'models/professional_standard.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -253,7 +254,14 @@ class _MyAppState extends State<MyApp> {
                       );
                     },
                     '/statistics': (context) => const StatisticsScreen(),
-                    '/standards': (context) => const StandardsScreen(),
+                    '/standards': (context) {
+                      final domain = ModalRoute.of(context)?.settings.arguments;
+                      return StandardsScreen(
+                        initialDomain: domain is ProfessionalDomain
+                            ? domain
+                            : null,
+                      );
+                    },
                     '/languageSelection': (context) =>
                         const LanguageSelectionScreen(),
                     '/splashAr': (context) => const SplashScreenAr(),

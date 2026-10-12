@@ -5,6 +5,9 @@ import 'package:agtiaz/screens/home_screen.dart';
 import 'package:agtiaz/services/content_cache.dart';
 import 'package:agtiaz/widgets/app_bottom_navigation.dart';
 import 'package:agtiaz/widgets/premium_tab_label.dart';
+import 'package:agtiaz/models/professional_standard.dart';
+import 'package:agtiaz/screens/standards_screen.dart';
+import 'package:agtiaz/theme/home_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +23,7 @@ void main() {
   late http.Client originalClient;
   late Directory directory;
   var requests = 0;
+  final routeArguments = <String, Object?>{};
 
   setUpAll(() async {
     if (Platform.isWindows) {
@@ -44,6 +48,7 @@ void main() {
     directory = await Directory.systemTemp.createTemp('agtiaz-home-ui-');
     ContentCache.directoryForTesting = directory;
     requests = 0;
+    routeArguments.clear();
     ContentCache.client = MockClient((request) async {
       requests++;
       return http.Response('{"success":true,"data":[]}', 200);
@@ -62,6 +67,7 @@ void main() {
     builder: (_, _) => RepaintBoundary(
       key: key,
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         locale: Locale(language),
         supportedLocales: const [Locale('ar'), Locale('en')],
         localizationsDelegates: const [
@@ -74,6 +80,21 @@ void main() {
           fontFamily: Platform.isWindows ? 'HomePreview' : null,
           scaffoldBackgroundColor: const Color(0xFFF9F9F9),
         ),
+        darkTheme: ThemeData(
+          brightness: Brightness.dark,
+          fontFamily: Platform.isWindows ? 'HomePreview' : null,
+        ),
+        routes: {
+          '/test': (context) => const Scaffold(body: Text('trial-target')),
+          '/payment': (context) => const Scaffold(body: Text('plans-target')),
+          '/standards': (context) {
+            final argument = ModalRoute.of(context)?.settings.arguments;
+            routeArguments['/standards'] = argument;
+            return StandardsScreen(
+              initialDomain: argument is ProfessionalDomain ? argument : null,
+            );
+          },
+        },
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(context).copyWith(disableAnimations: true),
           child: child!,
@@ -115,115 +136,161 @@ void main() {
     });
   }
 
-  testWidgets(
-    'free home ends near navigation without nested-scroll blank space',
-    (tester) async {
-      final key = GlobalKey();
-      await start(tester, key);
-      expect(find.byType(SliverAppBar), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byType(TabBarView),
-          matching: find.byType(SliverAppBar),
-        ),
-        findsNothing,
-      );
-      final header = find.byType(SliverAppBar);
-      expect(
-        find.descendant(of: header, matching: find.byIcon(Icons.logout)),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: header,
-          matching: find.byIcon(Icons.person_outline),
-        ),
-        findsNothing,
-      );
-      expect(find.byType(FloatingActionButton), findsNothing);
-      expect(find.byIcon(Icons.support_agent_rounded), findsNothing);
-      expect(
-        find.descendant(of: header, matching: find.byType(IconButton)),
-        findsNothing,
-      );
-      await tester.drag(
-        find.byKey(const PageStorageKey('home-scroll')),
-        const Offset(0, -2000),
-      );
-      await tester.pumpAndSettle();
-      final lastLabel = find.text(
-        AppLocalizations(const Locale('ar')).translate('homeFollow'),
-      );
-      final gap =
-          tester.getTopLeft(find.byType(AppBottomNavigation)).dy -
-          tester.getBottomLeft(lastLabel).dy;
-      expect(gap, inInclusiveRange(0, 28));
-      expect(
-        tester.getSize(find.byKey(const ValueKey('home-practice-steps'))).width,
-        closeTo(358, 0.5),
-      );
-      expect(tester.takeException(), isNull);
-      await preview(tester, key, 'home-free-bottom');
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+  testWidgets('Home greeting stays below system status bars and notches', (
+    tester,
+  ) async {
+    final key = GlobalKey();
+    tester.view.padding = const FakeViewPadding(top: 30, bottom: 20);
+    addTearDown(tester.view.resetPadding);
+    await start(tester, key);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('home-greeting'))).dy,
+      greaterThanOrEqualTo(54),
+    );
+    await tester.tap(find.byKey(const ValueKey('home-premium-tab')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
-  testWidgets('premium has top browse action, gold tab and black label', (
+  testWidgets('free home keeps compact header and finishes near navigation', (
     tester,
   ) async {
     final key = GlobalKey();
     await start(tester, key);
-    final headerPosition = tester.getTopLeft(find.byType(TabBar));
-    await tester.tap(find.byType(PremiumTabLabel).hitTestable());
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(tester.getTopLeft(find.byType(TabBar)), headerPosition);
-    await tester.pumpAndSettle();
-    expect(tester.getTopLeft(find.byType(TabBar)), headerPosition);
-    final browse = find.byKey(const ValueKey('home-browse-plans'));
-    expect(browse.hitTestable(), findsOneWidget);
-    expect(tester.getCenter(browse).dx, closeTo(195, 0.5));
+    expect(find.byType(SliverAppBar), findsOneWidget);
     expect(
-      tester.widget<FilledButton>(browse).style!.shape!.resolve({}),
-      isA<StadiumBorder>(),
+      tester.widget<SliverAppBar>(find.byType(SliverAppBar)).flexibleSpace,
+      isNull,
     );
-    expect(
-      tester.getTopLeft(browse).dy,
-      lessThan(
-        tester
-            .getTopLeft(find.byKey(const ValueKey('home-explore-standards')))
-            .dy,
-      ),
-    );
-    final tabs = tester.widget<TabBar>(find.byType(TabBar).hitTestable());
-    expect((tabs.indicator as BoxDecoration).color, const Color(0xFFE8B83F));
-    expect(tabs.labelColor, const Color(0xFF1C1C1C));
-    final sparkle = tester.widget<PremiumTabLabel>(
-      find.byType(PremiumTabLabel).hitTestable(),
-    );
-    expect(sparkle.selected, isTrue);
+    expect(find.byType(TabBarView), findsNothing);
+    expect(find.byIcon(Icons.logout), findsNothing);
     expect(find.byType(FloatingActionButton), findsNothing);
     expect(find.byIcon(Icons.support_agent_rounded), findsNothing);
-    expect(tester.takeException(), isNull);
-    await preview(tester, key, 'home-premium-top');
-    await tester.tap(
-      find.text(AppLocalizations(const Locale('ar')).translate('free')),
+    await preview(tester, key, 'home-free-top');
+    await tester.drag(
+      find.byKey(const PageStorageKey('home-scroll')),
+      const Offset(0, -2000),
     );
+    await tester.pumpAndSettle();
+    final lastAction = find.byKey(const ValueKey('home-select-premium'));
+    final gap =
+        tester.getTopLeft(find.byType(AppBottomNavigation)).dy -
+        tester.getBottomLeft(lastAction).dy;
+    expect(gap, inInclusiveRange(0, 24));
+    expect(tester.takeException(), isNull);
+    await preview(tester, key, 'home-free-bottom');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('premium switch keeps header stable and does not request data', (
+    tester,
+  ) async {
+    final key = GlobalKey();
+    await start(tester, key);
+    final position = tester.getTopLeft(find.byType(TabBar));
+    final initialRequests = requests;
+    await tester.tap(find.byKey(const ValueKey('home-premium-tab')));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.getTopLeft(find.byType(TabBar)), position);
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(find.byType(TabBar)), position);
+    expect(requests, initialRequests);
+    expect(
+      find.byKey(const ValueKey('home-browse-plans')).hitTestable(),
+      findsOneWidget,
+    );
+    final tabs = tester.widget<TabBar>(find.byType(TabBar));
+    expect((tabs.indicator as BoxDecoration).color, const Color(0xFFF1D185));
+    expect(find.byType(PremiumTabLabel), findsNothing);
+    expect(find.byType(FloatingActionButton), findsNothing);
+    await preview(tester, key, 'home-premium-top');
+    await tester.tap(find.byKey(const ValueKey('home-free-tab')));
     await tester.pumpAndSettle();
     await tester.drag(
       find.byKey(const ValueKey('home-tab-content')),
       const Offset(150, 0),
     );
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<PremiumTabLabel>(find.byType(PremiumTabLabel)).selected,
-      isTrue,
-    );
-    expect(tester.getTopLeft(find.byType(TabBar)), headerPosition);
+    expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
+    expect(tester.getTopLeft(find.byType(TabBar)), position);
+    expect(requests, initialRequests);
     await tester.drag(
       find.byKey(const PageStorageKey('home-scroll')),
       const Offset(0, -2000),
     );
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+    'Home actions reuse routes and pass the selected domain without extra reads',
+    (tester) async {
+      final key = GlobalKey();
+      await start(tester, key);
+      final initialRequests = requests;
+      final homeContext = tester.element(find.byType(HomeScreen));
+      await tester.tap(find.byKey(const ValueKey('home-start-trial')));
+      await tester.pumpAndSettle();
+      expect(find.text('trial-target'), findsOneWidget);
+      Navigator.of(homeContext).pop();
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('home-select-premium')),
+      );
+      await tester.tap(find.byKey(const ValueKey('home-select-premium')));
+      await tester.pumpAndSettle();
+      final browse = find.byKey(const ValueKey('home-browse-plans'));
+      await tester.ensureVisible(browse);
+      await tester.pumpAndSettle();
+      await tester.tap(browse);
+      await tester.pumpAndSettle();
+      expect(find.text('plans-target'), findsOneWidget);
+      Navigator.of(homeContext).pop();
+      await tester.pumpAndSettle();
+      final domain = find.byKey(const ValueKey('home-domain-practice'));
+      await tester.ensureVisible(domain);
+      await tester.pumpAndSettle();
+      await tester.tap(domain);
+      await tester.pumpAndSettle();
+      expect(routeArguments['/standards'], ProfessionalDomain.practice);
+      expect(find.byType(StandardsScreen), findsOneWidget);
+      Navigator.of(homeContext).pop();
+      await tester.pumpAndSettle();
+      expect(requests, initialRequests);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('system theme changes recolor Home without reloading data', (
+    tester,
+  ) async {
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+    addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+    final key = GlobalKey();
+    await start(tester, key);
+    final initialRequests = requests;
+    final home = find
+        .descendant(
+          of: find.byType(HomeScreen),
+          matching: find.byType(Scaffold),
+        )
+        .first;
+    final light = tester.widget<Scaffold>(home).backgroundColor;
+    tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Scaffold>(home).backgroundColor,
+      HomePalette.of(tester.element(home)).background,
+    );
+    expect(tester.widget<Scaffold>(home).backgroundColor, isNot(light));
+    expect(requests, initialRequests);
+    await preview(tester, key, 'home-free-dark');
+    await tester.tap(find.byKey(const ValueKey('home-premium-tab')));
+    await tester.pumpAndSettle();
+    await preview(tester, key, 'home-premium-dark');
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -320,6 +387,9 @@ void main() {
       final key = GlobalKey();
       await start(tester, key);
       tester.view.physicalSize = const Size(844, 390);
+      await tester.pumpAndSettle();
+      final trial = find.byKey(const ValueKey('home-start-trial'));
+      await tester.ensureVisible(trial);
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('home-start-trial')).hitTestable(),
