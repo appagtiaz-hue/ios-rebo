@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../l10n/app_localizations.dart';
@@ -7,6 +8,7 @@ import 'segmented_test_screen.dart';
 import 'standard_test_screen.dart';
 import '../services/database_service.dart';
 import '../services/content_cache.dart';
+import '../services/free_plan_usage_service.dart';
 import '../utils/responsive_layout.dart';
 import 'custom_tab_screen.dart';
 
@@ -103,6 +105,11 @@ class _ExamListScreenState extends State<ExamListScreen> {
     ContentCache.changes.addListener(_refreshPlanDetails);
     _loadExamResults();
     _refreshPlanDetails(); // Fetch fresh data on load
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _currentPlan != null) {
+        unawaited(FreePlanUsageService.instance.recordOpen(_currentPlan!));
+      }
+    });
   }
 
   Future<void> _refreshPlanDetails() async {
@@ -117,6 +124,9 @@ class _ExamListScreenState extends State<ExamListScreen> {
           _planUnavailable = matching.isEmpty;
           _currentPlan = matching.isEmpty ? null : matching.first;
         });
+        if (_currentPlan != null) {
+          unawaited(FreePlanUsageService.instance.recordOpen(_currentPlan!));
+        }
       }
     } catch (e) {
       print('Error refreshing plan details: $e');

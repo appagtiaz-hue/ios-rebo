@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../constants/colors.dart';
 import '../models/question.dart';
 import '../services/mongodb_question_service.dart';
 import '../services/network_service.dart';
+import '../services/database_service.dart';
+import '../services/free_plan_usage_service.dart';
 
 class AdditionalTestScreen extends StatefulWidget {
   final String testId;
@@ -41,6 +44,18 @@ class _AdditionalTestScreenState extends State<AdditionalTestScreen>
     super.initState();
     _initAnimations();
     _loadQuestions();
+    unawaited(_recordPlanOpen());
+  }
+
+  Future<void> _recordPlanOpen() async {
+    try {
+      final plan = await DatabaseService.getPlanById(widget.testId);
+      if (mounted && plan != null) {
+        await FreePlanUsageService.instance.recordOpen(plan);
+      }
+    } catch (_) {
+      // Independent tests may not have a corresponding plan.
+    }
   }
 
   void _initAnimations() {

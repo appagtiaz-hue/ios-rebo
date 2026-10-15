@@ -1,14 +1,13 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../services/content_cache.dart';
-
 import 'dart:convert';
-import '../constants/colors.dart';
+import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/user.dart';
+import '../services/auth_service.dart';
+import '../services/content_cache.dart';
 import '../services/database_service.dart';
 import '../services/network_service.dart';
-import '../services/auth_service.dart';
-import '../l10n/app_localizations.dart';
+import '../theme/home_palette.dart';
+import '../widgets/statistics_content.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key, this.onBack, this.user, this.statistics});
@@ -26,7 +25,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   int _level = 1;
   int _progress = 0;
   bool _isLoading = true;
-  User? _currentUser;
+  bool _unavailable = false;
+  bool _fetching = false;
 
   @override
   void initState() {
@@ -42,453 +42,185 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   @override
   void didUpdateWidget(covariant StatisticsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.onBack == null && widget.onBack != null) {
+      ContentCache.changes.removeListener(_loadStatistics);
+    } else if (oldWidget.onBack != null && widget.onBack == null) {
+      ContentCache.changes.addListener(_loadStatistics);
+      _loadStatistics();
+    }
     if (widget.onBack != null) _useHomeData();
   }
 
+  int _number(dynamic value, {int minimum = 0}) {
+    final parsed = value is num && value.isFinite ? value.toInt() : minimum;
+    return parsed < minimum ? minimum : parsed;
+  }
+
+  void _applyData(Map<String, dynamic> data) {
+    _completedTests = _number(data['completedTests']);
+    _totalPoints = _number(data['totalPoints']);
+    _level = _number(data['level'], minimum: 1);
+    _progress = _number(data['progress']).clamp(0, 100);
+    _unavailable = false;
+    _isLoading = false;
+  }
+
   void _useHomeData() {
-    _currentUser = widget.user;
     final data = widget.statistics;
-    _completedTests = (data?['completedTests'] as num?)?.toInt() ?? 0;
-    _totalPoints = (data?['totalPoints'] as num?)?.toInt() ?? 0;
-    _level = (data?['level'] as num?)?.toInt() ?? 1;
-    _progress = (data?['progress'] as num?)?.toInt() ?? 0;
-    _isLoading = data == null && widget.user != null;
+    if (data != null) {
+      _applyData(data);
+    } else {
+      _completedTests = 0;
+      _totalPoints = 0;
+      _level = 1;
+      _progress = 0;
+      _unavailable = false;
+      _isLoading = widget.user != null;
+    }
   }
 
   @override
   void dispose() {
-    if (widget.onBack == null) ContentCache.changes.removeListener(_loadStatistics);
+    ContentCache.changes.removeListener(_loadStatistics);
     super.dispose();
   }
 
   Future<void> _loadStatistics() async {
+    if (_fetching || widget.onBack != null) return;
+    _fetching = true;
     try {
       final user = await DatabaseService.getCurrentUser();
-      if (user == null || !mounted) return;
-
-      setState(() {
-        _currentUser = user;
-      });
-
-      // final prefs = await SharedPreferences.getInstance();
-      // final baseUrl = prefs.getString('base_url') ?? 'http://10.0.2.2:3000';
-      final baseUrl = NetworkService.baseUrl;
-
+      if (!mounted || widget.onBack != null) return;
+      if (user == null) throw StateError('No current account');
       final response = await ContentCache.get(
-        Uri.parse('$baseUrl/mobile/api/users/${user.id}/statistics'),
+        Uri.parse(
+          '${NetworkService.baseUrl}/mobile/api/users/${user.id}/statistics',
+        ),
         headers: await AuthService.authHeaders(),
         cacheFirst: true,
         userData: true,
       );
-
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && mounted) {
-          setState(() {
-            _completedTests = data['data']['completedTests'] ?? 0;
-            _totalPoints = data['data']['totalPoints'] ?? 0;
-            _level = data['data']['level'] ?? 1;
-            _progress = data['data']['progress'] ?? 0;
-            _isLoading = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+      if (!mounted || widget.onBack != null) return;
+      if (response.statusCode != 200)
+        throw StateError('Statistics unavailable');
+      final data = jsonDecode(response.body);
+      if (data is! Map ||
+          data['success'] != true ||
+          data['data'] is! Map<String, dynamic>) {
+        throw const FormatException('Invalid statistics');
       }
-    } catch (e) {
-      print('Error loading statistics: $e');
-      if (mounted) {
+      setState(() => _applyData(data['data'] as Map<String, dynamic>));
+    } catch (_) {
+      if (mounted && widget.onBack == null) {
         setState(() {
           _isLoading = false;
+          _unavailable = true;
         });
       }
+    } finally {
+      _fetching = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final p = HomePalette.of(context);
+    final text = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Container(
-        decoration: BoxDecoration(color: Theme.of(context).primaryColor),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Custom AppBar
-              Padding(
-                padding: EdgeInsets.all(16.w),
-                child: Row(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(
-                          color: AppColors.white.withOpacity(0.3),
-                          width: 1.w,
-                        ),
-                      ),
-                      child: IconButton(
-                        icon: Icon(
-                          Icons.arrow_back,
-                          color: AppColors.white,
-                          size: 22.r,
-                        ),
-                        onPressed: widget.onBack ?? () => Navigator.pop(context),
-                        padding: EdgeInsets.all(8.w),
-                        constraints: BoxConstraints(),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        AppLocalizations.of(
-                              context,
-                            )?.translate('performanceStatistics') ??
-                            'إحصائيات الأداء',
-                        style: TextStyle(
-                          color: AppColors.white,
-                          fontSize: 22.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    SizedBox(width: 40.w), // Balance the back button
-                  ],
-                ),
-              ),
-
-              // Content
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30.r),
-                      topRight: Radius.circular(30.r),
+      backgroundColor: p.background,
+      body: SafeArea(
+        bottom: widget.onBack == null,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 24, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    key: const ValueKey('stats-back'),
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).backButtonTooltip,
+                    onPressed: widget.onBack ?? () => Navigator.pop(context),
+                    color: p.ink,
+                    icon: const Icon(Icons.arrow_back),
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
                     ),
                   ),
-                  child: _isLoading
-                      ? Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.primary,
-                          ),
-                        )
-                      : SingleChildScrollView(
-                          padding: EdgeInsets.all(24.w),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Welcome Text
-                              Text(
-                                '${AppLocalizations.of(context)?.translate('hello') ?? "مرحباً"} ${_currentUser?.fullName ?? ""}!',
-                                style: TextStyle(
-                                  fontSize: 24.sp,
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(
-                                    context,
-                                  ).textTheme.bodyLarge?.color,
-                                ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      text.translate('statsTitle'),
+                      style: TextStyle(
+                        color: p.ink,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _isLoading
+                  ? Center(
+                      child: Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          text.translate('statsLoading'),
+                          style: TextStyle(color: p.secondary, fontSize: 15),
+                        ),
+                      ),
+                    )
+                  : _unavailable
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              text.translate('statsUnavailable'),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: p.secondary,
+                                fontSize: 15,
                               ),
-                              SizedBox(height: 8.h),
-                              Text(
-                                AppLocalizations.of(
-                                      context,
-                                    )?.translate('performanceSummary') ??
-                                    'إليك ملخص أدائك',
-                                style: TextStyle(
-                                  fontSize: 14.sp,
-                                  color: Theme.of(
-                                    context,
-                                  ).textTheme.bodyMedium?.color,
-                                ),
-                              ),
-                              SizedBox(height: 32.h),
-
-                              // Statistics Grid
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildStatCard(
-                                      icon: Icons.quiz,
-                                      title:
-                                          AppLocalizations.of(
-                                            context,
-                                          )?.translate('completedTests') ??
-                                          'الاختبارات المكتملة',
-                                      value: '$_completedTests',
-                                      gradient: [
-                                        AppColors.primary,
-                                        AppColors.primaryDark,
-                                      ],
-                                    ),
-                                  ),
-                                  SizedBox(width: 16.w),
-                                  Expanded(
-                                    child: _buildStatCard(
-                                      icon: Icons.emoji_events,
-                                      title:
-                                          AppLocalizations.of(
-                                            context,
-                                          )?.translate('totalPoints') ??
-                                          'إجمالي النقاط',
-                                      value: '$_totalPoints',
-                                      gradient: [
-                                        AppColors.secondary,
-                                        AppColors.secondaryDark,
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 24.h),
-
-                              // Level Card
-                              Container(
-                                padding: EdgeInsets.all(24.w),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      AppColors.planGoldStart.withOpacity(0.2),
-                                      AppColors.planGoldEnd.withOpacity(0.2),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(20.r),
-                                  border: Border.all(
-                                    color: AppColors.planGoldStart.withOpacity(
-                                      0.4,
-                                    ),
-                                    width: 2.w,
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: EdgeInsets.all(16.w),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                AppColors.planGoldStart,
-                                                AppColors.planGoldEnd,
-                                              ],
-                                            ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(
-                                            Icons.star,
-                                            color: AppColors.white,
-                                            size: 28.r,
-                                          ),
-                                        ),
-                                        SizedBox(width: 20.w),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                AppLocalizations.of(
-                                                      context,
-                                                    )?.translate(
-                                                      'currentLevel',
-                                                    ) ??
-                                                    'المستوى الحالي',
-                                                style: TextStyle(
-                                                  fontSize: 14.sp,
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).textTheme.bodyMedium?.color,
-                                                ),
-                                              ),
-                                              SizedBox(height: 4.h),
-                                              Text(
-                                                '${AppLocalizations.of(context)?.translate('level') ?? 'المستوى'} $_level',
-                                                style: TextStyle(
-                                                  fontSize: 24.sp,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Theme.of(
-                                                    context,
-                                                  ).textTheme.bodyLarge?.color,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal: 16.w,
-                                            vertical: 8.h,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                AppColors.planGoldStart,
-                                                AppColors.planGoldEnd,
-                                              ],
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              20.r,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '$_progress%',
-                                            style: TextStyle(
-                                              fontSize: 18.sp,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    SizedBox(height: 20.h),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          AppLocalizations.of(
-                                                context,
-                                              )?.translate(
-                                                'progressToNextLevel',
-                                              ) ??
-                                              'التقدم للمستوى التالي',
-                                          style: TextStyle(
-                                            fontSize: 13.sp,
-                                            color: Theme.of(
-                                              context,
-                                            ).textTheme.bodyMedium?.color,
-                                          ),
-                                        ),
-                                        SizedBox(height: 12.h),
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            10.r,
-                                          ),
-                                          child: LinearProgressIndicator(
-                                            value: _progress / 100,
-                                            backgroundColor:
-                                                AppColors.lightGrey,
-                                            valueColor:
-                                                AlwaysStoppedAnimation<Color>(
-                                                  AppColors.planGoldStart,
-                                                ),
-                                            minHeight: 10.h,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              SizedBox(height: 24.h),
-
-                              // Info Card
-                              Container(
-                                padding: EdgeInsets.all(20.w),
-                                decoration: BoxDecoration(
-                                  color: AppColors.info.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(16.r),
-                                  border: Border.all(
-                                    color: AppColors.info.withOpacity(0.3),
-                                    width: 1.5.w,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.info_outline,
-                                      color: AppColors.info,
-                                      size: 24.r,
-                                    ),
-                                    SizedBox(width: 12.w),
-                                    Expanded(
-                                      child: Text(
-                                        AppLocalizations.of(context)?.translate(
-                                              'pointsToNextLevelMessage',
-                                            ) ??
-                                            'كل 200 نقطة = مستوى جديد\nأكمل المزيد من الاختبارات لزيادة نقاطك!',
-                                        style: TextStyle(
-                                          fontSize: 13.sp,
-                                          color: Theme.of(
-                                            context,
-                                          ).textTheme.bodyMedium?.color,
-                                          height: 1.5,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                            ),
+                            const SizedBox(height: 12),
+                            IconButton(
+                              key: const ValueKey('stats-retry'),
+                              tooltip: text.translate('statsRetry'),
+                              icon: Icon(Icons.refresh, color: p.green),
+                              onPressed: () {
+                                setState(() => _isLoading = true);
+                                _loadStatistics();
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      key: const PageStorageKey('statistics-scroll'),
+                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 600),
+                          child: StatisticsContent(
+                            completedTests: _completedTests,
+                            totalPoints: _totalPoints,
+                            level: _level,
+                            progress: _progress,
                           ),
                         ),
-                ),
-              ),
-            ],
-          ),
+                      ),
+                    ),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required String title,
-    required String value,
-    required List<Color> gradient,
-  }) {
-    return Container(
-      padding: EdgeInsets.all(20.w),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(color: gradient[0].withOpacity(0.3), width: 2.w),
-        boxShadow: [
-          BoxShadow(
-            color: gradient[0].withOpacity(0.15),
-            blurRadius: 12.r,
-            offset: Offset(0, 6.h),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(14.w),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: gradient),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: AppColors.white, size: 24.r),
-          ),
-          SizedBox(height: 16.h),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 28.sp,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).textTheme.bodyLarge?.color,
-            ),
-          ),
-          SizedBox(height: 6.h),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12.sp,
-              color: Theme.of(context).textTheme.bodyMedium?.color,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }

@@ -9,6 +9,7 @@ import 'services/theme_service.dart';
 import 'services/localization_service.dart';
 import 'l10n/app_localizations.dart';
 import 'services/sync_queue_service.dart';
+import 'services/free_plan_usage_service.dart';
 import 'services/in_app_purchase_service.dart';
 import 'services/ios_notification_service.dart';
 import 'screens/splash_screen.dart';
@@ -109,6 +110,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _initSyncQueue() async {
+    unawaited(FreePlanUsageService.instance.flushPending());
     try {
       await SyncQueueService.initialize();
       print('✅ Sync Queue initialized');
@@ -118,6 +120,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _triggerSync() async {
+    unawaited(FreePlanUsageService.instance.flushPending());
     try {
       await SyncQueueService.processPendingSync();
     } catch (e) {

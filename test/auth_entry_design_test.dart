@@ -20,13 +20,19 @@ void main() {
   setUpAll(() async {
     if (Platform.isWindows) {
       final font = FontLoader('AuthPreview');
-      font.addFont(
-        Future.value(
-          ByteData.sublistView(
-            await File('C:/Windows/Fonts/arial.ttf').readAsBytes(),
-          ),
-        ),
-      );
+      const directory = String.fromEnvironment('AUTH_PREVIEW_FONT_DIR');
+      final files = directory.isEmpty
+          ? [File('C:/Windows/Fonts/arial.ttf')]
+          : Directory(directory).listSync().whereType<File>().where(
+              (file) =>
+                  file.path.contains('Cairo_regular_') ||
+                  file.path.contains('Cairo_700_'),
+            );
+      for (final file in files) {
+        font.addFont(
+          Future.value(ByteData.sublistView(await file.readAsBytes())),
+        );
+      }
       await font.load();
     }
     final icons = FontLoader('MaterialIcons');
@@ -329,6 +335,16 @@ void main() {
                 expect(destinations, isEmpty);
                 expect(tester.takeException(), isNull);
               } else {
+                await tester.ensureVisible(
+                  find.byKey(const ValueKey('language-continue')),
+                );
+                await tester.pumpAndSettle();
+                expect(
+                  tester
+                      .getSize(find.byKey(const ValueKey('language-continue')))
+                      .height,
+                  greaterThanOrEqualTo(52),
+                );
                 expect(
                   tester
                       .getSize(find.byKey(const ValueKey('language-option-ar')))
@@ -363,6 +379,18 @@ void main() {
       );
       button.onTap!();
       button.onTap!();
+      await tester.pumpAndSettle();
+      expect(destinations, isEmpty);
+      final before = await SharedPreferences.getInstance();
+      expect(before.getString('language_code'), isNull);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('language-continue')),
+      );
+      final submit = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('language-continue')),
+      );
+      submit.onPressed!();
+      submit.onPressed!();
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 50)),
       );
@@ -375,6 +403,39 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+
+  testWidgets(
+    'language selection previews locally and restores the saved choice',
+    (tester) async {
+      LocalizationService.locale.value = const Locale('en');
+      SharedPreferences.setMockInitialValues({'language_code': 'en'});
+      await start(tester, const LanguageSelectionScreen(), language: 'en');
+      expect(find.text('Continue'), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
+      expect(find.byIcon(Icons.radio_button_checked), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byIcon(Icons.radio_button_checked)).dx,
+        lessThan(tester.getTopLeft(find.text('English')).dx),
+      );
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('language-option-ar')),
+      );
+      await tester.tap(find.byKey(const ValueKey('language-option-ar')));
+      await tester.pumpAndSettle();
+      expect(find.text('متابعة'), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.arrow_back)).textDirection,
+        TextDirection.ltr,
+      );
+      expect(LocalizationService.locale.value.languageCode, 'en');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('language_code'), 'en');
+      expect(prefs.getBool('has_selected_language'), isNull);
+      expect(destinations, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets(
     'login restores saved email, toggles password and preserves forgot/signup routes',
