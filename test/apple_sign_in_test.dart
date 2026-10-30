@@ -107,6 +107,76 @@ void main() {
   );
 
   test(
+    'Apple conflict, temporary outage, unsupported device and storage failure stay distinct',
+    () async {
+      for (final scenario in [
+        'conflict',
+        'outage',
+        'unsupported',
+        'native',
+        'storage',
+      ]) {
+        var requests = 0;
+        final result = await AppleSignInService(
+          baseUrl: 'https://dummy.invalid',
+          client: MockClient((request) async {
+            requests++;
+            if (request.url.path.endsWith('/challenge')) {
+              return http.Response(
+                jsonEncode({
+                  'success': true,
+                  'challengeId': id,
+                  'nonce': nonce,
+                }),
+                200,
+              );
+            }
+            if (scenario == 'conflict' || scenario == 'outage') {
+              return http.Response(
+                jsonEncode({'error': 'dummy-private-token'}),
+                scenario == 'conflict' ? 409 : 503,
+              );
+            }
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'token': 'dummy-session',
+                'data': {'id': 'dummy', 'email': 'dummy@example.invalid'},
+              }),
+              200,
+            );
+          }),
+          saveToken: (_) async =>
+              throw PlatformException(code: 'dummy-private-storage'),
+          authorize: (_, state) async {
+            if (scenario == 'unsupported')
+              throw const SignInWithAppleNotSupportedException(
+                message: 'dummy-private-unsupported',
+              );
+            if (scenario == 'native') {
+              throw const SignInWithAppleAuthorizationException(
+                code: AuthorizationErrorCode.failed,
+                message: 'dummy-private-native',
+              );
+            }
+            return credential(state);
+          },
+        ).signIn();
+        expect(result['success'], false);
+        expect(result['errorCode'], switch (scenario) {
+          'conflict' => 'AUTH_PROVIDER_CONFLICT',
+          'outage' => 'AUTH_UNAVAILABLE',
+          'unsupported' => 'AUTH_APPLE_UNAVAILABLE',
+          'storage' => 'AUTH_SESSION_FAILED',
+          _ => 'AUTH_APPLE_RETRY',
+        });
+        expect(result['error'], isNot(contains('dummy-private')));
+        expect(requests, ['unsupported', 'native'].contains(scenario) ? 1 : 2);
+      }
+    },
+  );
+
+  test(
     'unavailable challenge, state mismatch, server errors and malformed success never save a session',
     () async {
       for (final scenario in [

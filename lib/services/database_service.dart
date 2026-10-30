@@ -9,6 +9,7 @@ import 'network_service.dart';
 import 'sync_queue_service.dart';
 import 'test_config.dart';
 import 'auth_service.dart';
+import 'auth_api.dart';
 import 'content_cache.dart';
 import 'account_deletion_state.dart';
 import '../models/question.dart';
@@ -757,82 +758,18 @@ class DatabaseService {
 
   // Login user using API - requires internet connection
   static Future<LoginResult> loginUser(String email, String password) async {
-    // Check network connectivity
-    final isOnline = await NetworkService.isConnected();
-
-    print('🔍 LOGIN DEBUG: Starting login process');
-    print('🔍 Email: $email');
-    print('🔍 Is Online: $isOnline');
-    print('🔍 Server URL: ${TestConfig.serverUrl}/mobile/api/users/login');
-
-    if (!isOnline) {
-      print('❌ LOGIN: No internet connection');
-      return LoginResult(
-        success: false,
-        error: 'يجب عليك الاتصال بالإنترنت لتسجيل الدخول',
-      );
+    final result = await AuthService.login(email: email, password: password);
+    if (result['success'] != true) {
+      return LoginResult(success: false, error: result['error'] as String);
     }
-
     try {
-      final requestBody = {'email': email, 'password': password};
-      print('📤 Login request prepared');
-
-      final response = await http
-          .post(
-            Uri.parse('${TestConfig.serverUrl}/mobile/api/users/login'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: jsonEncode(requestBody),
-          )
-          .timeout(Duration(seconds: TestConfig.requestTimeout));
-
-      print('📥 Response Status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          print('✅ LOGIN: Success!');
-          if (data['token'] != null) {
-            await AuthService.saveToken(data['token']);
-          }
-          final userData = data['data'];
-          final user = User.fromJson(userData);
-
-          // Also fetch fresh user data to get latest subscription info
-          await _syncUserFromServer(user.email);
-
-          final userWithSessionData = user.copyWith(password: '');
-          await _updateLocalUser(userWithSessionData);
-
-          return LoginResult(success: true, user: userWithSessionData);
-        } else {
-          print('❌ LOGIN: Server returned success=false');
-          return LoginResult(
-            success: false,
-            error: data['error'] ?? 'فشل في تسجيل الدخول',
-          );
-        }
-      } else {
-        print('❌ LOGIN: HTTP ${response.statusCode}');
-        try {
-          final data = jsonDecode(response.body);
-          return LoginResult(
-            success: false,
-            error: data['error'] ?? 'فشل في تسجيل الدخول',
-          );
-        } catch (e) {
-          return LoginResult(success: false, error: 'فشل في تسجيل الدخول');
-        }
-      }
-    } catch (e) {
-      print('❌ LOGIN ERROR: $e');
-      print('❌ Error Type: ${e.runtimeType}');
-      return LoginResult(
-        success: false,
-        error: 'فشل في الاتصال بالخادم. تأكد من اتصالك بالإنترنت',
-      );
+      final user = User.fromJson(result['user']).copyWith(password: '');
+      await _syncUserFromServer(user.email);
+      await _updateLocalUser(user);
+      return LoginResult(success: true, user: user);
+    } catch (_) {
+      try { await AuthService.deleteToken(); } catch (_) {}
+      return LoginResult(success: false, error: AuthMessages.text('AUTH_SESSION_FAILED'));
     }
   }
 

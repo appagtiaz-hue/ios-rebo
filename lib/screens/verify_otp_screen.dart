@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../constants/colors.dart';
-import '../services/network_service.dart';
+import '../services/auth_service.dart';
+import '../services/auth_api.dart';
 import 'new_password_screen.dart';
 
 class VerifyOTPScreen extends StatefulWidget {
@@ -27,6 +26,7 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
   }
 
   Future<void> _verifyOTP() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -34,42 +34,27 @@ class _VerifyOTPScreenState extends State<VerifyOTPScreen> {
     });
 
     try {
-      final response = await http.post(
-        Uri.parse(
-          '${NetworkService.baseUrl}/mobile/api/users/verify-reset-otp',
-        ),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': widget.email,
-          'otp': _otpController.text.trim(),
-        }),
+      final result = await AuthService.verifyResetOTP(
+        email: widget.email,
+        otp: _otpController.text.trim(),
       );
-
-      if (mounted) {
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          if (data['success'] == true) {
-            // OTP صحيح - الانتقال لشاشة إدخال كلمة المرور الجديدة
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => NewPasswordScreen(
-                  email: widget.email,
-                  otp: _otpController.text.trim(),
-                ),
-              ),
-            );
-          } else {
-            _showError(data['error'] ?? 'رمز التحقق غير صحيح');
-          }
-        } else {
-          final data = json.decode(response.body);
-          _showError(data['error'] ?? 'رمز التحقق غير صحيح أو منتهي الصلاحية');
-        }
+      if (!mounted) return;
+      if (result['success'] == true) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => NewPasswordScreen(
+              email: widget.email,
+              otp: _otpController.text.trim(),
+            ),
+          ),
+        );
+      } else {
+        _showError(result['error'] as String);
       }
     } catch (e) {
       if (mounted) {
-        _showError('حدث خطأ في الاتصال');
+        _showError(AuthMessages.text('OTP_UNAVAILABLE'));
       }
     } finally {
       if (mounted) {

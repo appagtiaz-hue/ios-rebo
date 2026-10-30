@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/auth_service.dart';
+import '../services/auth_api.dart';
 import '../services/otp_cooldown.dart';
 import '../constants/colors.dart';
 import '../l10n/app_localizations.dart';
@@ -28,27 +29,24 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() => _isLoading = true);
     final email = _emailController.text.trim();
-    final remaining = await OtpCooldown.remaining(email, 'reset');
-    if (!mounted) return;
-    if (remaining > 0) {
-      final minutes = (remaining / 60).ceil();
-      final text = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '${text.translate('resendAfter')} $minutes ${text.translate(minutes == 1 ? 'minute' : 'minutes')}',
-          ),
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
+      final remaining = await OtpCooldown.remaining(email, 'reset');
+      if (!mounted) return;
+      if (remaining > 0) {
+        final minutes = (remaining / 60).ceil();
+        final text = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${text.translate('resendAfter')} $minutes ${text.translate(minutes == 1 ? 'minute' : 'minutes')}',
+            ),
+          ),
+        );
+        return;
+      }
+
       final result = await AuthService.requestPasswordReset(
         email: _emailController.text.trim(),
       );
@@ -90,9 +88,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '${AppLocalizations.of(context)?.translate('error') ?? 'خطأ'}: ${e.toString()}',
-            ),
+            content: Text(AuthMessages.text('OTP_UNAVAILABLE')),
             backgroundColor: AppColors.error,
           ),
         );

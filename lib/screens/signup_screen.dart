@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/auth_service.dart';
+import '../services/auth_api.dart';
 import '../services/otp_cooldown.dart';
 import '../constants/colors.dart';
 import '../l10n/app_localizations.dart';
@@ -73,26 +74,17 @@ class _SignupScreenState extends State<SignupScreen> {
         _passwordController.clear();
         _confirmPasswordController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('الحساب موجود بالفعل. سجّل الدخول.')),
+          SnackBar(content: Text(AuthMessages.text('SIGNUP_CONFLICT'))),
         );
         Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       } else {
-        throw Exception(
-          result['error'] ??
-              AppLocalizations.of(context)?.translate('signupError') ??
-              'فشل في إنشاء الحساب',
+        _showAuthError(
+          result['error'] as String? ?? AuthMessages.text('AUTH_UNAVAILABLE'),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${AppLocalizations.of(context)?.translate('signupErrorPrefix') ?? 'خطأ في إنشاء الحساب'}: $e',
-            ),
-            backgroundColor: Color(0xFFFF5252),
-          ),
-        );
+        _showAuthError(AuthMessages.text('OTP_UNAVAILABLE'));
       }
     } finally {
       if (mounted) {
@@ -101,6 +93,13 @@ class _SignupScreenState extends State<SignupScreen> {
         });
       }
     }
+  }
+
+  void _showAuthError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
+    );
   }
 
   @override

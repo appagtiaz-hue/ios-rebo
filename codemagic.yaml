@@ -198,7 +198,7 @@ workflows:
       - name: Verify authentication and account deletion flows
         script: |
           set -euo pipefail
-          flutter test --no-pub test/apple_sign_in_test.dart test/account_deletion_test.dart test/account_session_guard_test.dart
+          flutter test --no-pub test/auth_errors_test.dart test/apple_sign_in_test.dart test/account_deletion_test.dart test/account_session_guard_test.dart
       - name: Build signed iPhoneOS IPA
         script: |
           set -euo pipefail

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../constants/colors.dart';
 import '../services/auth_service.dart';
+import '../services/auth_api.dart';
 
 class NewPasswordScreen extends StatefulWidget {
   final String email;
@@ -29,6 +30,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
   }
 
   Future<void> _resetPassword() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -82,7 +84,7 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('حدث خطأ: ${e.toString()}'),
+            content: Text(AuthMessages.text('OTP_UNAVAILABLE')),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(

@@ -7,6 +7,7 @@ import '../widgets/login_welcome_text.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/colors.dart';
 import '../services/auth_service.dart';
+import '../services/auth_api.dart';
 import '../services/database_service.dart';
 import '../models/user.dart';
 import '../l10n/app_localizations.dart';
@@ -83,6 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (_isLoading) return;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -90,23 +92,16 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     // Save credentials if remember me is checked
-    await _saveCredentials();
-
     try {
+      await _saveCredentials();
       final result = await AuthService.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
       if (result['success'] == true) {
-        try {
-          if (result['user'] != null) {
-            final user = User.fromJson(result['user']);
-            await DatabaseService.setCurrentUser(user);
-          }
-        } catch (e) {
-          print('Error saving user session: $e');
-        }
+        final user = User.fromJson(result['user']);
+        await DatabaseService.setCurrentUser(user);
 
         // إرسال FCM Token للسيرفر لكي تصل الإشعارات لهذا المستخدم
         NotificationService.updateTokenOnServer(_emailController.text.trim());
@@ -132,14 +127,14 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       }
-    } catch (e) {
+    } catch (_) {
+      try {
+        await AuthService.deleteToken();
+      } catch (_) {}
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              AppLocalizations.of(context)?.translate('unexpectedError') ??
-                  'حدث خطأ غير متوقع',
-            ),
+            content: Text(AuthMessages.text('AUTH_SESSION_FAILED')),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -158,6 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleGoogleSignIn() async {
+    if (_isLoading) return;
     setState(() {
       _isLoading = true;
     });
@@ -166,14 +162,8 @@ class _LoginScreenState extends State<LoginScreen> {
       final result = await AuthService.signInWithGoogle();
 
       if (result['success'] == true) {
-        try {
-          if (result['user'] != null) {
-            final user = User.fromJson(result['user']);
-            await DatabaseService.setCurrentUser(user);
-          }
-        } catch (e) {
-          print('Error saving user session: $e');
-        }
+        final user = User.fromJson(result['user']);
+        await DatabaseService.setCurrentUser(user);
 
         // إرسال FCM Token للسيرفر بعد تسجيل الدخول بجوجل
         if (result['user'] != null && result['user']['email'] != null) {
@@ -201,11 +191,14 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       }
-    } catch (e) {
+    } catch (_) {
+      try {
+        await AuthService.deleteToken();
+      } catch (_) {}
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('حدث خطأ غير متوقع'),
+            content: Text(AuthMessages.text('AUTH_SESSION_FAILED')),
             backgroundColor: AppColors.error,
           ),
         );
@@ -569,8 +562,11 @@ class _LoginScreenState extends State<LoginScreen> {
         _showAppleSignInError(result['error']);
       }
     } catch (_) {
-      await AuthService.deleteToken();
-      if (mounted) _showAppleSignInError(null);
+      try {
+        await AuthService.deleteToken();
+      } catch (_) {}
+      if (mounted)
+        _showAppleSignInError(AuthMessages.text('AUTH_SESSION_FAILED'));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
