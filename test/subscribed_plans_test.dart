@@ -123,7 +123,7 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
-          (_) async => 'test-token',
+          (call) async => call.arguments['key'] == 'jwt_token' ? 'test-token' : null,
         );
   });
   tearDown(() async {

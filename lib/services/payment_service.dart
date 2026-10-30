@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/payment_plan.dart';
 import '../models/user.dart';
+import 'account_deletion_state.dart';
 
 class PaymentService {
   static const String _paymentHistoryKey = 'payment_history';
@@ -173,6 +174,7 @@ class PaymentService {
     PaymentPlan plan,
     String transactionId,
   ) async {
+    final generation = AccountDeletionState.generation;
     final prefs = await SharedPreferences.getInstance();
     final historyKey = '${_paymentHistoryKey}_${user.id}';
 
@@ -193,7 +195,7 @@ class PaymentService {
       'status': 'completed',
     });
 
-    await prefs.setString(historyKey, jsonEncode(history));
+    await AccountDeletionState.writeString(prefs, historyKey, jsonEncode(history), generation);
   }
 
   // Grant user access to the plan
@@ -201,6 +203,7 @@ class PaymentService {
     User user,
     PaymentPlan plan,
   ) async {
+    final generation = AccountDeletionState.generation;
     // Update Local Cache (legacy demo flow)
     final prefs = await SharedPreferences.getInstance();
     final testsKey = '${_userTestsKey}_${user.id}';
@@ -220,7 +223,7 @@ class PaymentService {
       'is_used': false,
     });
 
-    await prefs.setString(testsKey, jsonEncode(tests));
+    await AccountDeletionState.writeString(prefs, testsKey, jsonEncode(tests), generation);
 
     // Persist perpetual access to the plan for the user
     final plansKey = '${_userPlansKey}_${user.id}';
@@ -231,7 +234,7 @@ class PaymentService {
     }
     if (!plans.contains(plan.id)) {
       plans.add(plan.id);
-      await prefs.setString(plansKey, jsonEncode(plans));
+      await AccountDeletionState.writeString(prefs, plansKey, jsonEncode(plans), generation);
     }
   }
 
@@ -277,6 +280,7 @@ class PaymentService {
 
   // Mark test as used
   static Future<void> markTestAsUsed(String userId, String planId) async {
+    final generation = AccountDeletionState.generation;
     final prefs = await SharedPreferences.getInstance();
     final testsKey = '${_userTestsKey}_$userId';
 
@@ -294,7 +298,7 @@ class PaymentService {
         }
       }
 
-      await prefs.setString(testsKey, jsonEncode(tests));
+      await AccountDeletionState.writeString(prefs, testsKey, jsonEncode(tests), generation);
     }
   }
 }

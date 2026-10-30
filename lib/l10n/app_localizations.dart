@@ -14,6 +14,50 @@ class AppLocalizations {
 
   static final Map<String, Map<String, String>> _localizedValues = {
     'ar': {
+      'deleteAccountTitle': 'حذف الحساب',
+      'deleteWarning':
+          'حذف حسابك نهائي ولا يمكن التراجع عنه. تأكد من حفظ أي معلومات تحتاجها قبل المتابعة.',
+      'deleteDataIdentity': 'بيانات الحساب والصورة ووسائل تسجيل الدخول',
+      'deleteDataProgress': 'نتائج الاختبارات والتقدم والسجلات الشخصية',
+      'deleteDataPlans': 'جميع الخطط والاختبارات المرتبطة بحسابك',
+      'deleteDataDevices': 'جلسات الدخول والتنزيلات والكاش على هذا الجهاز',
+      'deleteBilling':
+          'حذف الحساب لا يرد رسوم الشراء ولا يلغي أي اشتراك متجدد لدى المتجر تلقائيًا.',
+      'deleteManageSubscriptions': 'إدارة اشتراكات المتجر',
+      'deleteProofRetention':
+          'نحتفظ ببصمة إثبات الشراء فقط طوال صلاحيته، دون اسم أو بريد أو رمز شراء خام، لمنع نقله إلى حساب آخر.',
+      'deleteBackups':
+          'تنتهي البيانات في النسخ الاحتياطية خلال {days} يومًا. قد يستغرق إنهاء تفويض أبل حتى 7 أيام؛ راجع أيضًا التطبيقات المرتبطة في حساب أبل.',
+      'deleteConfirmTitle': 'حذف الحساب نهائيًا؟',
+      'deleteConfirmBody':
+          'سيُحذف حسابك وبياناته وتفقد الوصول إلى خططه. سنطلب تأكيد هويتك قبل تنفيذ الحذف.',
+      'deletePermanent': 'حذف حسابي نهائيًا',
+      'deletePassword': 'كلمة المرور الحالية',
+      'deleteUnderstand': 'أفهم أن بياناتي والوصول إلى خططي ستُحذف نهائيًا',
+      'deleteWorking': 'جارٍ الإتمام…',
+      'deleteVerifyWith': 'تأكيد الهوية بواسطة',
+      'deleteMethod_password': 'كلمة المرور',
+      'deleteMethod_google': 'Google',
+      'deleteMethod_apple': 'Apple',
+      'deleteWait': 'محاولات كثيرة. انتظر 15 دقيقة ثم حاول مجددًا.',
+      'deleteIdentityError':
+          'تعذّر تأكيد هويتك. استخدم بيانات الحساب الحالي وحاول مجددًا.',
+      'deleteUnavailable':
+          'تعذّر إتمام الطلب. بيانات حسابك لم يُؤكَّد حذفها. حاول مجددًا لاحقًا.',
+      'deleteUnknown':
+          'الاتصال انقطع ولم نتأكد من نتيجة الحذف. تحقق من الحالة قبل متابعة استخدام التطبيق.',
+      'deleteCleanupPending':
+          'تم حذف الحساب على السيرفر. تعذّر إكمال تنظيف الجهاز؛ أعد المحاولة لإتمامه.',
+      'deleteNotCompleted':
+          'لم يتم الحذف. الحساب ما زال موجودًا ويمكنك إعادة المحاولة.',
+      'deleteCheckStatus': 'التحقق من حالة الحذف',
+      'deleteRetry': 'إعادة المحاولة',
+      'deleteSuccessTitle': 'تم حذف الحساب',
+      'deleteSuccessBody':
+          'تم حذف حسابك وبياناته المرتبطة من الخدمة، وتنظيف بياناته على هذا الجهاز. لن تُنقل مشتريات الحساب المحذوف إلى حساب آخر.',
+      'deleteReturnLogin': 'العودة لتسجيل الدخول',
+      'continueWithApple': 'المتابعة باستخدام Apple',
+      'appleSignInError': 'تعذّر تسجيل الدخول بأبل. حاول مرة أخرى',
       'catalogTitle': 'الخطط',
       'catalogSubtitle': 'اختر ما يناسب تدريبك',
       'catalogSelect': 'اختر خطة للمتابعة',
@@ -475,6 +519,52 @@ class AppLocalizations {
       'confirmRemoveImage': 'هل أنت متأكد من إزالة الصورة الشخصية؟',
     },
     'en': {
+      'deleteAccountTitle': 'Delete account',
+      'deleteWarning':
+          'Account deletion is permanent and cannot be undone. Keep any information you need before continuing.',
+      'deleteDataIdentity': 'Account details, photo and sign-in credentials',
+      'deleteDataProgress': 'Test results, progress and personal records',
+      'deleteDataPlans': 'All plans and tests assigned to your account',
+      'deleteDataDevices':
+          'Sign-in sessions, downloads and cache on this device',
+      'deleteBilling':
+          'Deleting your account does not refund purchases or automatically cancel any renewing store subscription.',
+      'deleteManageSubscriptions': 'Manage store subscriptions',
+      'deleteProofRetention':
+          'We retain only a purchase-proof fingerprint while the proof remains valid, without your name, email or raw purchase token, to prevent transfer to another account.',
+      'deleteBackups':
+          'Backup copies expire within {days} days. Apple authorization cleanup may take up to 7 days; also review linked apps in your Apple Account.',
+      'deleteConfirmTitle': 'Permanently delete your account?',
+      'deleteConfirmBody':
+          'Your account and its data will be deleted and access to its plans removed. We will verify your identity before deletion.',
+      'deletePermanent': 'Permanently delete my account',
+      'deletePassword': 'Current password',
+      'deleteUnderstand':
+          'I understand my data and access to my plans will be permanently removed',
+      'deleteWorking': 'Processing…',
+      'deleteVerifyWith': 'Verify your identity with',
+      'deleteMethod_password': 'Password',
+      'deleteMethod_google': 'Google',
+      'deleteMethod_apple': 'Apple',
+      'deleteWait': 'Too many attempts. Wait 15 minutes before trying again.',
+      'deleteIdentityError':
+          'Identity could not be verified. Use the current account credentials and try again.',
+      'deleteUnavailable':
+          'The request could not be completed. Account deletion has not been confirmed. Please try again later.',
+      'deleteUnknown':
+          'Connection was lost and deletion is not confirmed. Check its status before using the app again.',
+      'deleteCleanupPending':
+          'The server account was deleted. Device cleanup is incomplete; retry to finish.',
+      'deleteNotCompleted':
+          'Deletion did not complete. Your account still exists and you can try again.',
+      'deleteCheckStatus': 'Check deletion status',
+      'deleteRetry': 'Try again',
+      'deleteSuccessTitle': 'Account deleted',
+      'deleteSuccessBody':
+          'Your account and associated service data have been deleted, and account data on this device cleared. Purchases from the deleted account will not transfer to another account.',
+      'deleteReturnLogin': 'Return to sign in',
+      'continueWithApple': 'Continue with Apple',
+      'appleSignInError': 'Unable to sign in with Apple. Please try again.',
       'catalogTitle': 'Plans',
       'catalogSubtitle': 'Choose what suits your practice',
       'catalogSelect': 'Select a plan to continue',

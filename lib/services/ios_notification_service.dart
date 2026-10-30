@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'apple_push_token.dart';
 import 'auth_service.dart';
+import 'account_deletion_state.dart';
 import 'network_service.dart';
 
 class IosNotificationService with WidgetsBindingObserver {
@@ -73,6 +74,8 @@ class IosNotificationService with WidgetsBindingObserver {
     do {
       _synchronizeAgain = false;
       try {
+        final generation = AccountDeletionState.generation;
+        if (await AuthService.getToken() == null) return;
         await _ensureInitialized();
         final token = await getApplePushToken(
           hasPermission: () async {
@@ -86,7 +89,12 @@ class IosNotificationService with WidgetsBindingObserver {
         );
         if (token == null || token.isEmpty) continue;
         final preferences = await SharedPreferences.getInstance();
+        if (generation != AccountDeletionState.generation || await AuthService.getToken() == null) return;
         await preferences.setString('fcm_token', token);
+        if (generation != AccountDeletionState.generation) {
+          await preferences.remove('fcm_token');
+          return;
+        }
         await _registerToken(token);
       } catch (_) {
         _logFailure();

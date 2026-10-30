@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../theme/home_palette.dart';
 import '../widgets/agtiaz_brand_logo.dart';
 import '../widgets/login_welcome_text.dart';
@@ -9,6 +11,8 @@ import '../services/database_service.dart';
 import '../models/user.dart';
 import '../l10n/app_localizations.dart';
 import '../services/notification_service.dart';
+import '../services/account_deletion_state.dart';
+import 'account_deletion_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,6 +33,20 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _loadSavedCredentials();
+    _recoverDeletionIfNeeded();
+  }
+
+  Future<void> _recoverDeletionIfNeeded() async {
+    try {
+      if (await AccountDeletionState.isPending() && mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AccountDeletionScreen()),
+        );
+      }
+    } catch (_) {
+      /* Secure storage errors must not overwrite a pending receipt. */
+    }
   }
 
   @override
@@ -469,6 +487,33 @@ class _LoginScreenState extends State<LoginScreen> {
 
         SizedBox(height: 12),
 
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ...[
+          Semantics(
+            enabled: !_isLoading,
+            child: IgnorePointer(
+              ignoring: _isLoading,
+              child: Opacity(
+                opacity: _isLoading ? 0.5 : 1,
+                child: SignInWithAppleButton(
+                  key: const ValueKey('login-apple'),
+                  onPressed: _handleAppleSignIn,
+                  text:
+                      AppLocalizations.of(
+                        context,
+                      )?.translate('continueWithApple') ??
+                      'المتابعة باستخدام Apple',
+                  height: 48,
+                  borderRadius: BorderRadius.circular(24),
+                  style: Theme.of(context).brightness == Brightness.dark
+                      ? SignInWithAppleButtonStyle.white
+                      : SignInWithAppleButtonStyle.black,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+
         // Sign Up Link
         Wrap(
           alignment: WrapAlignment.center,
@@ -507,6 +552,43 @@ class _LoginScreenState extends State<LoginScreen> {
       ],
     ),
   );
+
+  Future<void> _handleAppleSignIn() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    try {
+      final result = await AuthService.signInWithApple();
+      if (!mounted) return;
+      if (result['success'] == true) {
+        final user = User.fromJson(result['user']);
+        await DatabaseService.setCurrentUser(user);
+        if (!mounted) return;
+        NotificationService.updateTokenOnServer(user.email);
+        Navigator.pushReplacementNamed(context, '/home');
+      } else if (result['cancelled'] != true) {
+        _showAppleSignInError(result['error']);
+      }
+    } catch (_) {
+      await AuthService.deleteToken();
+      if (mounted) _showAppleSignInError(null);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showAppleSignInError(dynamic message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message is String && message.isNotEmpty
+              ? message
+              : AppLocalizations.of(context)?.translate('appleSignInError') ??
+                    'تعذّر تسجيل الدخول بأبل. حاول مرة أخرى',
+        ),
+        backgroundColor: AppColors.error,
+      ),
+    );
+  }
 
   Widget _buildRoundedTextField({
     required TextEditingController controller,

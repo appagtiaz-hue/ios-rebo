@@ -7,6 +7,7 @@ import 'dart:io';
 import 'ios_notification_service.dart';
 import 'network_service.dart';
 import 'auth_service.dart';
+import 'account_deletion_state.dart';
 
 import 'package:flutter/material.dart';
 
@@ -50,11 +51,13 @@ class NotificationService {
    * Get FCM Token and save it locally
    */
   static Future<String?> _getToken() async {
+    final generation = AccountDeletionState.generation;
     try {
+      if (await AuthService.getToken() == null) return null;
       String? token = await _messaging.getToken();
       if (token != null) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('fcm_token', token);
+        await AccountDeletionState.writeString(prefs, 'fcm_token', token, generation);
         if (kDebugMode) {
           print('🔑 FCM token obtained');
         }

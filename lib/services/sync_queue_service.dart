@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/sync_queue_item.dart';
 import 'network_service.dart';
 import 'auth_service.dart';
+import 'account_deletion_state.dart';
 
 /// Service for managing offline sync queue
 class SyncQueueService {
@@ -35,9 +36,13 @@ class SyncQueueService {
 
   /// Load queue from persistent storage
   static Future<void> _loadQueue() async {
+    final generation = AccountDeletionState.generation;
     try {
       final prefs = await SharedPreferences.getInstance();
       final queueJson = prefs.getString(_queueKey);
+      if (generation != AccountDeletionState.generation ||
+          await AccountDeletionState.isPending())
+        return;
 
       if (queueJson != null) {
         final List<dynamic> decoded = jsonDecode(queueJson);
@@ -54,12 +59,16 @@ class SyncQueueService {
 
   /// Save queue to persistent storage
   static Future<void> _saveQueue() async {
+    final generation = AccountDeletionState.generation;
     try {
       final prefs = await SharedPreferences.getInstance();
       final queueJson = jsonEncode(
         _queueCache.map((item) => item.toJson()).toList(),
       );
-      await prefs.setString(_queueKey, queueJson);
+      if (generation != AccountDeletionState.generation ||
+          await AccountDeletionState.isPending())
+        return;
+      await AccountDeletionState.writeString(prefs, _queueKey, queueJson, generation);
       _notifyPendingCount();
     } catch (e) {
       print('❌ Error saving sync queue: $e');
@@ -79,6 +88,7 @@ class SyncQueueService {
     required String endpoint,
     required Map<String, dynamic> payload,
   }) async {
+    if (await AccountDeletionState.isPending()) return;
     final id =
         '${DateTime.now().millisecondsSinceEpoch}_${operation.toString()}';
 
@@ -103,6 +113,8 @@ class SyncQueueService {
 
   /// Process all pending sync operations
   static Future<void> processPendingSync() async {
+    final generation = AccountDeletionState.generation;
+    if (await AccountDeletionState.isPending()) return;
     if (_isSyncing) {
       print('⚠️ Sync already in progress, skipping...');
       return;
@@ -127,6 +139,9 @@ class SyncQueueService {
     final itemsToRemove = <SyncQueueItem>[];
 
     for (final item in itemsToProcess) {
+      if (generation != AccountDeletionState.generation ||
+          await AccountDeletionState.isPending())
+        break;
       try {
         final success = await _syncItem(item);
 
@@ -194,6 +209,9 @@ class SyncQueueService {
 
       http.Response response;
       final headers = await AuthService.authHeaders();
+      if (!headers.containsKey('Authorization') ||
+          await AccountDeletionState.isPending())
+        return false;
 
       switch (item.operation) {
         case SyncOperation.create:

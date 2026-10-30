@@ -4,10 +4,20 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'network_service.dart';
 import 'content_cache.dart';
+import 'apple_sign_in_service.dart';
+import 'account_deletion_state.dart';
+import 'account_deletion_service.dart';
+import 'account_erasure.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 /// Authentication Service for MongoDB API with OTP verification & Google Sign-In
 class AuthService {
   static const _storage = FlutterSecureStorage();
+
+  static Future<Map<String, dynamic>> signInWithApple() => AppleSignInService(
+    baseUrl: NetworkService.baseUrl,
+    saveToken: saveToken,
+  ).signIn();
 
   // Google Sign-In instance (6.x API)
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
@@ -23,11 +33,14 @@ class AuthService {
 
   /// Save JWT token securely
   static Future<void> saveToken(String token) async {
+    if (await AccountDeletionState.isPending())
+      throw StateError('Resolve pending account deletion first');
     await _storage.write(key: 'jwt_token', value: token);
   }
 
   /// Get stored JWT token
   static Future<String?> getToken() async {
+    if (await AccountDeletionState.isPending()) return null;
     return await _storage.read(key: 'jwt_token');
   }
 
@@ -53,6 +66,10 @@ class AuthService {
   /// Returns User data if token is valid, null otherwise
   static Future<Map<String, dynamic>?> autoLogin() async {
     try {
+      if (await AccountDeletionState.isPending()) {
+        final outcome = await AccountDeletionService().recover();
+        if (outcome != DeletionOutcome.notDeleted) return null;
+      }
       final token = await getToken();
       if (token == null) return null;
 
@@ -87,6 +104,11 @@ class AuthService {
           print('✅ Auto-login successful');
           return data['data'];
         }
+      }
+
+      if ([401, 404, 410].contains(response.statusCode)) {
+        await AccountErasure.run();
+        return null;
       }
 
       print('⚠️ Token expired or invalid, logging out.');
@@ -182,6 +204,37 @@ class AuthService {
   // ==========================
   // EXISTING METHODS
   // ==========================
+
+  static Future<Map<String, String>?> proofForAccountDeletion(
+    String method,
+    String nonce,
+    String state,
+  ) async {
+    if (method == 'apple') {
+      try {
+        final credential = await SignInWithApple.getAppleIDCredential(
+          scopes: [AppleIDAuthorizationScopes.email],
+          nonce: nonce,
+          state: state,
+        );
+        if (credential.state != state || credential.identityToken == null)
+          throw StateError('Invalid authorization state');
+        return {
+          'identityToken': credential.identityToken!,
+          'authorizationCode': credential.authorizationCode,
+        };
+      } on SignInWithAppleAuthorizationException catch (error) {
+        if (error.code == AuthorizationErrorCode.canceled) return null;
+        rethrow;
+      }
+    }
+    await _googleSignIn.signOut();
+    final account = await _googleSignIn.signIn();
+    if (account == null) return null;
+    final token = (await account.authentication).idToken;
+    if (token == null) throw StateError('Google authorization unavailable');
+    return {'idToken': token};
+  }
 
   /// Sign up - Request OTP for email verification
   static Future<Map<String, dynamic>> signup({

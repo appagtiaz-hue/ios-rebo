@@ -54,3 +54,19 @@ get_ip.ps1
 
 # Build reports
 android/build/reports/
+
+# Private signing material and alternate downloaded configuration copies.
+.env
+.env.*
+!.env.example
+*.p8
+*.pem
+*.key
+*.jks
+*.keystore
+*.p12
+*.pfx
+android/key.properties
+android/app/google-services*.json
+**/serviceAccountKey.json
+client_secret_*.json

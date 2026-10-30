@@ -142,6 +142,10 @@ class ContentCache {
           cached['savedAt'] = DateTime.now().millisecondsSinceEpoch;
           await file.parent.create(recursive: true);
           await file.writeAsString(jsonEncode(cached));
+          if (private && privateGeneration != _privateGeneration) {
+            if (await file.exists()) await file.delete();
+            return response;
+          }
           return _response(cached);
         }
         if ([401, 403, 404, 410].contains(response.statusCode)) {
@@ -162,6 +166,10 @@ class ContentCache {
                 'private': _scope(headers) != 'public',
               }),
             );
+            if (private && privateGeneration != _privateGeneration) {
+              if (await file.exists()) await file.delete();
+              return response;
+            }
             if (!versionChanged &&
                 cached != null &&
                 cached['body'] != response.body)
@@ -263,6 +271,19 @@ class ContentCache {
       if (cached?['private'] == true && await file.exists())
         await file.delete();
     }
+  }
+
+  static Future<void> eraseAccountData() async {
+    _privateGeneration++;
+    for (final origin in _generations.keys.toList()) {
+      _generations[origin] = (_generations[origin] ?? 0) + 1;
+    }
+    _lastCheck.clear();
+    _supportsVersions.clear();
+    final root = directoryForTesting ?? await getApplicationSupportDirectory();
+    final directory = Directory('${root.path}/content_cache');
+    if (await directory.exists()) await directory.delete(recursive: true);
+    changes.value++;
   }
 
   static Future<void> invalidateUserData(Uri uri) async {

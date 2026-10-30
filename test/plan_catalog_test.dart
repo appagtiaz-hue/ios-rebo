@@ -85,7 +85,8 @@ void main() {
     serverPlans = [...plans];
     extraPlans = [];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(secure, (_) async => 'plans-test-token');
+        .setMockMethodCallHandler(secure, (call) async =>
+          call.arguments['key'] == 'jwt_token' ? 'plans-test-token' : null);
     ContentCache.client = MockClient((request) async {
       requests++;
       if (request.url.path == '/api/content-version') {

@@ -305,8 +305,8 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(
             channel,
-            (call) async =>
-                'header.${base64Url.encode(utf8.encode(jsonEncode({'id': currentUser})))}.signature',
+            (call) async => call.arguments['key'] == 'jwt_token'
+                ? 'header.${base64Url.encode(utf8.encode(jsonEncode({'id': currentUser})))}.signature' : null,
           );
       ContentCache.client = MockClient((request) async {
         final plan = request.url.queryParameters['planId'];

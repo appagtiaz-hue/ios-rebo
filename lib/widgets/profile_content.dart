@@ -23,9 +23,11 @@ class ProfileContent extends StatelessWidget {
     required this.onSupport,
     required this.onLogout,
     this.photo,
+    this.onDeleteAccount,
   });
   final String name, email, language;
   final ImageProvider? photo;
+  final VoidCallback? onDeleteAccount;
   final List<Map<String, dynamic>> subscriptions;
   final bool loadingSubscriptions;
   final ThemeMode themeMode;
@@ -284,6 +286,17 @@ class ProfileContent extends StatelessWidget {
                     onTap: onLogout,
                     showArrow: false,
                   ),
+                  if (onDeleteAccount != null)
+                    ProfileActionRow(
+                      key: const ValueKey('profile-delete-account'),
+                      icon: Icons.person_remove_outlined,
+                      title: t('deleteAccountTitle'),
+                      color: p.dark
+                          ? const Color(0xFFF0ADA5)
+                          : const Color(0xFF9E342A),
+                      onTap: onDeleteAccount!,
+                      showArrow: false,
+                    ),
                 ],
               ),
             ),

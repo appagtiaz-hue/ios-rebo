@@ -15,6 +15,8 @@ import '../services/theme_service.dart';
 import '../services/localization_service.dart';
 import '../services/auth_service.dart';
 import '../l10n/app_localizations.dart';
+import 'account_deletion_screen.dart';
+import '../services/account_deletion_state.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, this.onBack, this.user, this.subscriptions});
@@ -72,8 +74,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _updateLocalName(String newName) async {
+    final generation = AccountDeletionState.generation;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('local_user_name', newName);
+    await AccountDeletionState.writeString(prefs, 'local_user_name', newName, generation);
     if (!mounted) return;
     setState(() {
       _localName = newName;
@@ -289,6 +292,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _pickImage() async {
+    final generation = AccountDeletionState.generation;
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
@@ -317,7 +321,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (croppedFile != null) {
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('profile_image_path', croppedFile.path);
+        await AccountDeletionState.writeString(prefs, 'profile_image_path', croppedFile.path, generation);
         if (!mounted) return;
         setState(() {
           _profileImage = File(croppedFile.path);
@@ -701,6 +705,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onTheme: _showThemeDialog,
           onLanguage: _showLanguageDialog,
           onSupport: () => _showContactDialog(context),
+          onDeleteAccount: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AccountDeletionScreen()),
+          ),
           onLogout: _confirmLogout,
         ),
       ),

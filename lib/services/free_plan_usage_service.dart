@@ -20,6 +20,12 @@ class FreePlanUsageService {
   final DateTime Function() _now;
   final Map<String, DateTime> _retryAfter = {};
   Future<void>? _flushing;
+  int _generation = 0;
+
+  void resetForAccountDeletion() {
+    _generation++;
+    _retryAfter.clear();
+  }
 
   FreePlanUsageService({
     http.Client? client,
@@ -53,6 +59,7 @@ class FreePlanUsageService {
       'free_plan_open_v1_${Uri.encodeComponent(_baseUrl)}_${userId}_';
 
   Future<void> recordOpen(PaymentPlan plan) async {
+    final generation = _generation;
     if (plan.price != 0 ||
         !plan.isActive ||
         !RegExp(r'^[a-fA-F0-9]{24}$').hasMatch(plan.id)) {
@@ -64,7 +71,12 @@ class FreePlanUsageService {
       final prefs = await _preferences();
       final key = '${_prefix(session.userId)}${plan.id}';
       if (prefs.getString(key) == 'sent') return;
+      if (generation != _generation) return;
       await prefs.setString(key, 'pending');
+      if (generation != _generation) {
+        await prefs.remove(key);
+        return;
+      }
       await flushPending();
     } catch (_) {
       // Measurement must never block or interrupt training.
@@ -83,6 +95,7 @@ class FreePlanUsageService {
   }
 
   Future<void> _flush() async {
+    final generation = _generation;
     try {
       final session = await _session();
       if (session == null) return;
@@ -114,9 +127,14 @@ class FreePlanUsageService {
                 body: jsonEncode({'planId': planId}),
               )
               .timeout(const Duration(seconds: 5));
+          if (generation != _generation) return;
           if (response.statusCode == 200 &&
               jsonDecode(response.body)['success'] == true) {
             await prefs.setString(key, 'sent');
+            if (generation != _generation) {
+              await prefs.remove(key);
+              return;
+            }
             _retryAfter.remove(key);
           } else if ([400, 403, 404, 410].contains(response.statusCode)) {
             await prefs.remove(key);

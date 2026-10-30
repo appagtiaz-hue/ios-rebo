@@ -195,6 +195,10 @@ workflows:
           set -euo pipefail
           xcode-project use-profiles
           test -f /Users/builder/export_options.plist
+      - name: Verify authentication and account deletion flows
+        script: |
+          set -euo pipefail
+          flutter test --no-pub test/apple_sign_in_test.dart test/account_deletion_test.dart test/account_session_guard_test.dart
       - name: Build signed iPhoneOS IPA
         script: |
           set -euo pipefail
@@ -229,6 +233,9 @@ workflows:
           security cms -D -i "$APP/embedded.mobileprovision" > "$VERIFY_DIR/profile.plist"
           PROFILE_PUSH_ENV=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:aps-environment' "$VERIFY_DIR/profile.plist" 2>/dev/null || true)
           [ "$PROFILE_PUSH_ENV" = production ] || { echo "App Store provisioning profile does not permit production push notifications. Regenerate it after enabling Push Notifications."; exit 1; }
+          APPLE_SIGNIN=$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.applesignin:0' "$VERIFY_DIR/signed-entitlements.plist" 2>/dev/null || true)
+          PROFILE_APPLE_SIGNIN=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:com.apple.developer.applesignin:0' "$VERIFY_DIR/profile.plist" 2>/dev/null || true)
+          [ "$APPLE_SIGNIN" = Default ] && [ "$PROFILE_APPLE_SIGNIN" = Default ] || { echo "Sign in with Apple is missing from the signed app or provisioning profile. Enable the capability for com.agtiaz.app and regenerate its App Store profile."; exit 1; }
           cp "${IPAS[0]}" build/ios/agtiaz-signed.ipa
     artifacts:
       - build/ios/agtiaz-signed.ipa

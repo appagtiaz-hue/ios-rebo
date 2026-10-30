@@ -90,6 +90,7 @@ dependencies:
   url_launcher: ^6.3.2
   in_app_purchase: ^3.2.3
   google_sign_in: ^6.2.2
+  sign_in_with_apple: 8.2.0
   flutter_secure_storage: ^10.0.0
 
 dev_dependencies:

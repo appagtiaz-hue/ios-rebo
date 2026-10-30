@@ -10,6 +10,7 @@ import 'sync_queue_service.dart';
 import 'test_config.dart';
 import 'auth_service.dart';
 import 'content_cache.dart';
+import 'account_deletion_state.dart';
 import '../models/question.dart';
 import '../models/payment_plan.dart';
 
@@ -57,6 +58,8 @@ class DatabaseService {
   }
 
   static Future<void> _updateLocalUser(User user) async {
+    final generation = AccountDeletionState.generation;
+    if (await AccountDeletionState.isPending()) return;
     final prefs = await SharedPreferences.getInstance();
     final safeUser = user.copyWith(password: '');
     final usersJson = prefs.getString(_usersKey);
@@ -73,10 +76,16 @@ class DatabaseService {
       if (!updated) {
         usersList.add(safeUser.toJson());
       }
-      await prefs.setString(_usersKey, jsonEncode(usersList));
+      if (generation != AccountDeletionState.generation ||
+          await AccountDeletionState.isPending())
+        return;
+      await AccountDeletionState.writeString(prefs, _usersKey, jsonEncode(usersList), generation);
     } else {
       // إذا لم يكن هناك مستخدمون، أنشئ مفتاح جديد
-      await prefs.setString(_usersKey, jsonEncode([safeUser.toJson()]));
+      if (generation != AccountDeletionState.generation ||
+          await AccountDeletionState.isPending())
+        return;
+      await AccountDeletionState.writeString(prefs, _usersKey, jsonEncode([safeUser.toJson()]), generation);
     }
   }
 
@@ -258,12 +267,17 @@ class DatabaseService {
   }
 
   static Future<void> setCurrentUser(User user) async {
+    final generation = AccountDeletionState.generation;
     final prefs = await SharedPreferences.getInstance();
+    if (generation != AccountDeletionState.generation ||
+        await AccountDeletionState.isPending())
+      return;
     final safeUser = user.copyWith(password: '');
-    await prefs.setString(_currentUserKey, jsonEncode(safeUser.toJson()));
+    await AccountDeletionState.writeString(prefs, _currentUserKey, jsonEncode(safeUser.toJson()), generation);
   }
 
   static Future<User?> getCurrentUser() async {
+    if (await AccountDeletionState.isPending()) return null;
     final prefs = await SharedPreferences.getInstance();
     final userJson = prefs.getString(_currentUserKey);
     if (userJson != null) {
@@ -389,6 +403,7 @@ class DatabaseService {
     required int questionCount,
     bool useAllQuestionsIfZero = true,
   }) async {
+    final generation = AccountDeletionState.generation;
     final prefs = await SharedPreferences.getInstance();
     final key = 'fixed_plan_question_ids_${userId}_$planId';
     final headers = await AuthService.authHeaders();
@@ -433,7 +448,7 @@ class DatabaseService {
       chosen = list.take(questionCount).toList();
     }
     final ids = chosen.map((q) => q.id).toList();
-    await prefs.setString(key, jsonEncode(ids));
+    await AccountDeletionState.writeString(prefs, key, jsonEncode(ids), generation);
     return chosen;
   }
 
@@ -827,6 +842,7 @@ class DatabaseService {
     required String planId,
     required Map<String, dynamic> planContent,
   }) async {
+    final generation = AccountDeletionState.generation;
     try {
       print('💾 SAVING OFFLINE PLAN CONTENT:');
       print('   User ID: $userId');
@@ -839,7 +855,7 @@ class DatabaseService {
       print('   Questions to save: $questionCount');
       print('   Storage Key: $key');
 
-      await prefs.setString(key, jsonEncode(planContent));
+      await AccountDeletionState.writeString(prefs, key, jsonEncode(planContent), generation);
 
       // Verify it was saved
       final saved = prefs.getString(key);

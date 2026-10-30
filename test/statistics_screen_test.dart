@@ -71,7 +71,8 @@ void main() {
     responseStatus = 200;
     malformed = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(secure, (_) async => 'statistics-test-token');
+        .setMockMethodCallHandler(secure, (call) async =>
+          call.arguments['key'] == 'jwt_token' ? 'statistics-test-token' : null);
     ContentCache.client = MockClient((request) async {
       requests++;
       expect(request.url.path, '/mobile/api/users/${user.id}/statistics');

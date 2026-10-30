@@ -10,6 +10,7 @@ import 'services/localization_service.dart';
 import 'l10n/app_localizations.dart';
 import 'services/sync_queue_service.dart';
 import 'services/free_plan_usage_service.dart';
+import 'services/account_session_guard.dart';
 import 'services/in_app_purchase_service.dart';
 import 'services/ios_notification_service.dart';
 import 'screens/splash_screen.dart';
@@ -88,10 +89,14 @@ class _MyAppState extends State<MyApp> {
   late AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSubscription;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  late final AccountSessionGuard _sessionGuard;
 
   @override
   void initState() {
     super.initState();
+    _sessionGuard = AccountSessionGuard(onRevoked: () {
+      _navigatorKey.currentState?.pushNamedAndRemoveUntil('/login', (_) => false);
+    })..start();
     _initDeepLinks();
     _initSyncQueue();
 
@@ -120,6 +125,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _triggerSync() async {
+    await _sessionGuard.check();
     unawaited(FreePlanUsageService.instance.flushPending());
     try {
       await SyncQueueService.processPendingSync();
@@ -130,6 +136,7 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void dispose() {
+    _sessionGuard.dispose();
     _linkSubscription?.cancel();
     super.dispose();
   }
